@@ -545,7 +545,7 @@ function buildChatCommands(): ChatCommandDefinition[] {
     defineChatCommand({
       key: "new",
       nativeName: "new",
-      description: "Start a new session.",
+      description: "Start a fresh page (new session). Also: /fresh.",
       textAlias: "/new",
       acceptsArgs: true,
       category: "session",
@@ -745,6 +745,7 @@ function buildChatCommands(): ChatCommandDefinition[] {
   registerAlias(commands, "reasoning", "/reason");
   registerAlias(commands, "elevated", "/elev");
   registerAlias(commands, "steer", "/tell");
+  registerAlias(commands, "new", "/fresh");
 
   assertCommandRegistry(commands);
   return commands;

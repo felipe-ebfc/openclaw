@@ -286,7 +286,8 @@ export async function runPreparedReply(
     typing.cleanup();
     return undefined;
   }
-  const isBareNewOrReset = rawBodyTrimmed === "/new" || rawBodyTrimmed === "/reset";
+  const isBareNewOrReset =
+    rawBodyTrimmed === "/new" || rawBodyTrimmed === "/reset" || rawBodyTrimmed === "/fresh";
   const isBareSessionReset =
     isNewSession &&
     ((baseBodyTrimmedRaw.length === 0 && rawBodyTrimmed.length > 0) || isBareNewOrReset);

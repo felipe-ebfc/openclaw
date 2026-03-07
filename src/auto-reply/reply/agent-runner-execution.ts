@@ -598,7 +598,7 @@ export async function runAgentTurnWithFallback(params: {
       const fallbackText = isContextOverflow
         ? "⚠️ Context overflow — prompt too large for this model. Try a shorter message or a larger-context model."
         : isRoleOrderingError
-          ? "⚠️ Message ordering conflict - please try again. If this persists, use /new to start a fresh session."
+          ? "⚠️ Message ordering conflict - please try again. If this persists, type /fresh to start a fresh page."
           : `⚠️ Agent failed before reply: ${trimmedMessage}.\nLogs: openclaw logs --follow`;
 
       return {
@@ -621,7 +621,7 @@ export async function runAgentTurnWithFallback(params: {
     return {
       kind: "final",
       payload: {
-        text: "⚠️ Context overflow — this conversation is too large for the model. Use /new to start a fresh session.",
+        text: "⚠️ Context overflow — this conversation is too large for the model. Type /fresh to start a fresh page.",
       },
     };
   }
