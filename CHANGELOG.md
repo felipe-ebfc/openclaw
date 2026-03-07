@@ -2,6 +2,14 @@
 
 Docs: https://docs.openclaw.ai
 
+## EBFC 2026.3.3
+
+### EBFC-specific fixes
+
+- Config/memorySearch: switch `agents.defaults.memorySearch.provider` from `local` to `ollama` (nomic-embed-text via Ollama) to eliminate ggml-metal ASSERT crash on container shutdown caused by node-llama-cpp Metal GPU cleanup.
+- Config/gateway: set `gateway.channelHealthCheckMinutes: 60` (upstream default: 30) to reduce false-positive stale-socket restarts on low-traffic webchat and Telegram channels.
+- Docker: add `ollama` service to compose stack with persistent `ollama-data` volume; `openclaw-gateway` routes embedding requests to `http://ollama:11434` via `models.providers.ollama.baseUrl`. Pull model on first start: `docker compose exec ollama ollama pull nomic-embed-text`.
+
 ## 2026.3.3
 
 ### Changes
