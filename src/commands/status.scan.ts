@@ -125,8 +125,6 @@ async function resolveChannelsStatus(params: {
 
 export type StatusScanResult = {
   cfg: ReturnType<typeof loadConfig>;
-  sourceConfig: ReturnType<typeof loadConfig>;
-  secretDiagnostics: string[];
   osSummary: ReturnType<typeof resolveOsSummary>;
   tailscaleMode: string;
   tailscaleDns: string | null;
@@ -181,13 +179,11 @@ async function scanStatusJsonFast(opts: {
   all?: boolean;
 }): Promise<StatusScanResult> {
   const loadedRaw = loadConfig();
-  const { resolvedConfig: cfg, diagnostics: secretDiagnostics } =
-    await resolveCommandSecretRefsViaGateway({
-      config: loadedRaw,
-      commandName: "status --json",
-      targetIds: getStatusCommandSecretTargetIds(),
-      mode: "summary",
-    });
+  const { resolvedConfig: cfg } = await resolveCommandSecretRefsViaGateway({
+    config: loadedRaw,
+    commandName: "status --json",
+    targetIds: getStatusCommandSecretTargetIds(),
+  });
   const osSummary = resolveOsSummary();
   const tailscaleMode = cfg.gateway?.tailscale?.mode ?? "off";
   const updateTimeoutMs = opts.all ? 6500 : 2500;
@@ -197,7 +193,7 @@ async function scanStatusJsonFast(opts: {
     includeRegistry: true,
   });
   const agentStatusPromise = getAgentLocalStatuses();
-  const summaryPromise = getStatusSummary({ config: cfg, sourceConfig: loadedRaw });
+  const summaryPromise = getStatusSummary({ config: cfg });
 
   const tailscaleDnsPromise =
     tailscaleMode === "off"
@@ -240,8 +236,6 @@ async function scanStatusJsonFast(opts: {
 
   return {
     cfg,
-    sourceConfig: loadedRaw,
-    secretDiagnostics,
     osSummary,
     tailscaleMode,
     tailscaleDns,
@@ -284,13 +278,11 @@ export async function scanStatus(
     async (progress) => {
       progress.setLabel("Loading config…");
       const loadedRaw = loadConfig();
-      const { resolvedConfig: cfg, diagnostics: secretDiagnostics } =
-        await resolveCommandSecretRefsViaGateway({
-          config: loadedRaw,
-          commandName: "status",
-          targetIds: getStatusCommandSecretTargetIds(),
-          mode: "summary",
-        });
+      const { resolvedConfig: cfg } = await resolveCommandSecretRefsViaGateway({
+        config: loadedRaw,
+        commandName: "status",
+        targetIds: getStatusCommandSecretTargetIds(),
+      });
       const osSummary = resolveOsSummary();
       const tailscaleMode = cfg.gateway?.tailscale?.mode ?? "off";
       const tailscaleDnsPromise =
@@ -308,9 +300,7 @@ export async function scanStatus(
         }),
       );
       const agentStatusPromise = deferResult(getAgentLocalStatuses());
-      const summaryPromise = deferResult(
-        getStatusSummary({ config: cfg, sourceConfig: loadedRaw }),
-      );
+      const summaryPromise = deferResult(getStatusSummary({ config: cfg }));
       progress.tick();
 
       progress.setLabel("Checking Tailscale…");
@@ -354,7 +344,6 @@ export async function scanStatus(
         // Show token previews in regular status; keep `status --all` redacted.
         // Set `CLAWDBOT_SHOW_SECRETS=0` to force redaction.
         showSecrets: process.env.CLAWDBOT_SHOW_SECRETS?.trim() !== "0",
-        sourceConfig: loadedRaw,
       });
       progress.tick();
 
@@ -372,8 +361,6 @@ export async function scanStatus(
 
       return {
         cfg,
-        sourceConfig: loadedRaw,
-        secretDiagnostics,
         osSummary,
         tailscaleMode,
         tailscaleDns,

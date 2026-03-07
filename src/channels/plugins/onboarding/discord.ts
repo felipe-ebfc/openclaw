@@ -1,7 +1,6 @@
 import type { OpenClawConfig } from "../../../config/config.js";
 import type { DiscordGuildEntry } from "../../../config/types.discord.js";
 import { hasConfiguredSecretInput } from "../../../config/types.secrets.js";
-import { inspectDiscordAccount } from "../../../discord/account-inspect.js";
 import {
   listDiscordAccountIds,
   resolveDefaultDiscordAccountId,
@@ -149,8 +148,8 @@ export const discordOnboardingAdapter: ChannelOnboardingAdapter = {
   channel,
   getStatus: async ({ cfg }) => {
     const configured = listDiscordAccountIds(cfg).some((accountId) => {
-      const account = inspectDiscordAccount({ cfg, accountId });
-      return account.configured;
+      const account = resolveDiscordAccount({ cfg, accountId });
+      return Boolean(account.token) || hasConfiguredSecretInput(account.config.token);
     });
     return {
       channel,

@@ -144,7 +144,7 @@ describe("registerPreActionHooks", () => {
       runtime: runtimeMock,
       commandPath: ["status"],
     });
-    expect(ensurePluginRegistryLoadedMock).toHaveBeenCalledTimes(1);
+    expect(ensurePluginRegistryLoadedMock).not.toHaveBeenCalled();
     expect(process.title).toBe("openclaw-status");
 
     vi.clearAllMocks();

@@ -52,6 +52,8 @@ export function resolveContextWindowInfo(params: {
 export type ContextWindowGuardResult = ContextWindowInfo & {
   shouldWarn: boolean;
   shouldBlock: boolean;
+  /** True when model metadata was unavailable and the fallback default was used. */
+  shouldWarnDefaultSource: boolean;
 };
 
 export function evaluateContextWindowGuard(params: {
@@ -70,5 +72,6 @@ export function evaluateContextWindowGuard(params: {
     tokens,
     shouldWarn: tokens > 0 && tokens < warnBelow,
     shouldBlock: tokens > 0 && tokens < hardMin,
+    shouldWarnDefaultSource: params.info.source === "default",
   };
 }

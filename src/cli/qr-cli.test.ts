@@ -72,32 +72,6 @@ function createTailscaleRemoteRefConfig() {
   };
 }
 
-function createDefaultSecretProvider() {
-  return {
-    providers: {
-      default: { source: "env" as const },
-    },
-  };
-}
-
-function createLocalGatewayConfigWithAuth(auth: Record<string, unknown>) {
-  return {
-    secrets: createDefaultSecretProvider(),
-    gateway: {
-      bind: "custom",
-      customBindHost: "gateway.local",
-      auth,
-    },
-  };
-}
-
-function createLocalGatewayPasswordRefAuth(secretId: string) {
-  return {
-    mode: "password",
-    password: { source: "env", provider: "default", id: secretId },
-  };
-}
-
 describe("registerQrCli", () => {
   function createProgram() {
     const program = new Command();
@@ -112,23 +86,6 @@ describe("registerQrCli", () => {
 
   async function expectQrExit(args: string[]) {
     await expect(runQr(args)).rejects.toThrow("exit");
-  }
-
-  function parseLastLoggedQrJson() {
-    return JSON.parse(String(runtime.log.mock.calls.at(-1)?.[0] ?? "{}")) as {
-      setupCode?: string;
-      gatewayUrl?: string;
-      auth?: string;
-      urlSource?: string;
-    };
-  }
-
-  function mockTailscaleStatusLookup() {
-    runCommandWithTimeout.mockResolvedValue({
-      code: 0,
-      stdout: '{"Self":{"DNSName":"ts-host.tailnet.ts.net."}}',
-      stderr: "",
-    });
   }
 
   beforeEach(() => {
@@ -200,11 +157,21 @@ describe("registerQrCli", () => {
   });
 
   it("skips local password SecretRef resolution when --token override is provided", async () => {
-    loadConfig.mockReturnValue(
-      createLocalGatewayConfigWithAuth(
-        createLocalGatewayPasswordRefAuth("MISSING_LOCAL_GATEWAY_PASSWORD"),
-      ),
-    );
+    loadConfig.mockReturnValue({
+      secrets: {
+        providers: {
+          default: { source: "env" },
+        },
+      },
+      gateway: {
+        bind: "custom",
+        customBindHost: "gateway.local",
+        auth: {
+          mode: "password",
+          password: { source: "env", provider: "default", id: "MISSING_LOCAL_GATEWAY_PASSWORD" },
+        },
+      },
+    });
 
     await runQr(["--setup-code-only", "--token", "override-token"]);
 
@@ -217,11 +184,21 @@ describe("registerQrCli", () => {
 
   it("resolves local gateway auth password SecretRefs before setup code generation", async () => {
     vi.stubEnv("QR_LOCAL_GATEWAY_PASSWORD", "local-password-secret");
-    loadConfig.mockReturnValue(
-      createLocalGatewayConfigWithAuth(
-        createLocalGatewayPasswordRefAuth("QR_LOCAL_GATEWAY_PASSWORD"),
-      ),
-    );
+    loadConfig.mockReturnValue({
+      secrets: {
+        providers: {
+          default: { source: "env" },
+        },
+      },
+      gateway: {
+        bind: "custom",
+        customBindHost: "gateway.local",
+        auth: {
+          mode: "password",
+          password: { source: "env", provider: "default", id: "QR_LOCAL_GATEWAY_PASSWORD" },
+        },
+      },
+    });
 
     await runQr(["--setup-code-only"]);
 
@@ -235,11 +212,21 @@ describe("registerQrCli", () => {
 
   it("uses OPENCLAW_GATEWAY_PASSWORD without resolving local password SecretRef", async () => {
     vi.stubEnv("OPENCLAW_GATEWAY_PASSWORD", "password-from-env");
-    loadConfig.mockReturnValue(
-      createLocalGatewayConfigWithAuth(
-        createLocalGatewayPasswordRefAuth("MISSING_LOCAL_GATEWAY_PASSWORD"),
-      ),
-    );
+    loadConfig.mockReturnValue({
+      secrets: {
+        providers: {
+          default: { source: "env" },
+        },
+      },
+      gateway: {
+        bind: "custom",
+        customBindHost: "gateway.local",
+        auth: {
+          mode: "password",
+          password: { source: "env", provider: "default", id: "MISSING_LOCAL_GATEWAY_PASSWORD" },
+        },
+      },
+    });
 
     await runQr(["--setup-code-only"]);
 
@@ -252,13 +239,22 @@ describe("registerQrCli", () => {
   });
 
   it("does not resolve local password SecretRef when auth mode is token", async () => {
-    loadConfig.mockReturnValue(
-      createLocalGatewayConfigWithAuth({
-        mode: "token",
-        token: "token-123",
-        password: { source: "env", provider: "default", id: "MISSING_LOCAL_GATEWAY_PASSWORD" },
-      }),
-    );
+    loadConfig.mockReturnValue({
+      secrets: {
+        providers: {
+          default: { source: "env" },
+        },
+      },
+      gateway: {
+        bind: "custom",
+        customBindHost: "gateway.local",
+        auth: {
+          mode: "token",
+          token: "token-123",
+          password: { source: "env", provider: "default", id: "MISSING_LOCAL_GATEWAY_PASSWORD" },
+        },
+      },
+    });
 
     await runQr(["--setup-code-only"]);
 
@@ -272,11 +268,20 @@ describe("registerQrCli", () => {
 
   it("resolves local password SecretRef when auth mode is inferred", async () => {
     vi.stubEnv("QR_INFERRED_GATEWAY_PASSWORD", "inferred-password");
-    loadConfig.mockReturnValue(
-      createLocalGatewayConfigWithAuth({
-        password: { source: "env", provider: "default", id: "QR_INFERRED_GATEWAY_PASSWORD" },
-      }),
-    );
+    loadConfig.mockReturnValue({
+      secrets: {
+        providers: {
+          default: { source: "env" },
+        },
+      },
+      gateway: {
+        bind: "custom",
+        customBindHost: "gateway.local",
+        auth: {
+          password: { source: "env", provider: "default", id: "QR_INFERRED_GATEWAY_PASSWORD" },
+        },
+      },
+    });
 
     await runQr(["--setup-code-only"]);
 
@@ -385,11 +390,20 @@ describe("registerQrCli", () => {
     { name: "when tailscale is configured", withTailscale: true },
   ])("reports gateway.remote.url as source in --remote json output ($name)", async (testCase) => {
     loadConfig.mockReturnValue(createRemoteQrConfig({ withTailscale: testCase.withTailscale }));
-    mockTailscaleStatusLookup();
+    runCommandWithTimeout.mockResolvedValue({
+      code: 0,
+      stdout: '{"Self":{"DNSName":"ts-host.tailnet.ts.net."}}',
+      stderr: "",
+    });
 
     await runQr(["--json", "--remote"]);
 
-    const payload = parseLastLoggedQrJson();
+    const payload = JSON.parse(String(runtime.log.mock.calls.at(-1)?.[0] ?? "{}")) as {
+      setupCode?: string;
+      gatewayUrl?: string;
+      auth?: string;
+      urlSource?: string;
+    };
     expect(payload.gatewayUrl).toBe("wss://remote.example.com:444");
     expect(payload.auth).toBe("token");
     expect(payload.urlSource).toBe("gateway.remote.url");
@@ -402,11 +416,20 @@ describe("registerQrCli", () => {
       resolvedConfig: createRemoteQrConfig(),
       diagnostics: ["gateway.remote.password inactive"] as string[],
     });
-    mockTailscaleStatusLookup();
+    runCommandWithTimeout.mockResolvedValue({
+      code: 0,
+      stdout: '{"Self":{"DNSName":"ts-host.tailnet.ts.net."}}',
+      stderr: "",
+    });
 
     await runQr(["--json", "--remote"]);
 
-    const payload = parseLastLoggedQrJson();
+    const payload = JSON.parse(String(runtime.log.mock.calls.at(-1)?.[0] ?? "{}")) as {
+      setupCode?: string;
+      gatewayUrl?: string;
+      auth?: string;
+      urlSource?: string;
+    };
     expect(payload.gatewayUrl).toBe("wss://remote.example.com:444");
     expect(
       runtime.error.mock.calls.some((call) =>

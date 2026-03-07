@@ -1,5 +1,8 @@
 import type { Bot, Context } from "grammy";
-import { ensureConfiguredAcpRouteReady } from "../acp/persistent-bindings.route.js";
+import {
+  ensureConfiguredAcpRouteReady,
+  resolveConfiguredAcpRoute,
+} from "../acp/persistent-bindings.route.js";
 import { resolveChunkMode } from "../auto-reply/chunk.js";
 import type { CommandArgs } from "../auto-reply/commands-registry.js";
 import {
@@ -57,11 +60,12 @@ import {
   buildTelegramThreadParams,
   buildSenderName,
   buildTelegramGroupFrom,
+  buildTelegramGroupPeerId,
+  buildTelegramParentPeer,
   resolveTelegramGroupAllowFromContext,
   resolveTelegramThreadSpec,
 } from "./bot/helpers.js";
 import type { TelegramContext } from "./bot/types.js";
-import { resolveTelegramConversationRoute } from "./conversation-route.js";
 import {
   evaluateTelegramGroupBaseAccess,
   evaluateTelegramGroupPolicyAccess,
@@ -420,17 +424,15 @@ export const registerTelegramNativeCommands = ({
     isGroup: boolean;
     isForum: boolean;
     resolvedThreadId?: number;
-    senderId?: string;
-    topicAgentId?: string;
   }): Promise<{
     chatId: number;
     threadSpec: ReturnType<typeof resolveTelegramThreadSpec>;
-    route: ReturnType<typeof resolveTelegramConversationRoute>["route"];
+    route: ReturnType<typeof resolveAgentRoute>;
     mediaLocalRoots: readonly string[] | undefined;
     tableMode: ReturnType<typeof resolveMarkdownTableMode>;
     chunkMode: ReturnType<typeof resolveChunkMode>;
   } | null> => {
-    const { msg, isGroup, isForum, resolvedThreadId, senderId, topicAgentId } = params;
+    const { msg, isGroup, isForum, resolvedThreadId } = params;
     const chatId = msg.chat.id;
     const messageThreadId = (msg as { message_thread_id?: number }).message_thread_id;
     const threadSpec = resolveTelegramThreadSpec({
@@ -438,16 +440,28 @@ export const registerTelegramNativeCommands = ({
       isForum,
       messageThreadId,
     });
-    let { route, configuredBinding } = resolveTelegramConversationRoute({
+    const parentPeer = buildTelegramParentPeer({ isGroup, resolvedThreadId, chatId });
+    const peerId = isGroup ? buildTelegramGroupPeerId(chatId, resolvedThreadId) : String(chatId);
+    let route = resolveAgentRoute({
       cfg,
+      channel: "telegram",
       accountId,
-      chatId,
-      isGroup,
-      resolvedThreadId,
-      replyThreadId: threadSpec.id,
-      senderId,
-      topicAgentId,
+      peer: {
+        kind: isGroup ? "group" : "direct",
+        id: peerId,
+      },
+      parentPeer,
     });
+    const configuredRoute = resolveConfiguredAcpRoute({
+      cfg,
+      route,
+      channel: "telegram",
+      accountId,
+      conversationId: peerId,
+      parentConversationId: isGroup ? String(chatId) : undefined,
+    });
+    const configuredBinding = configuredRoute.configuredBinding;
+    route = configuredRoute.route;
     if (configuredBinding) {
       const ensured = await ensureConfiguredAcpRouteReady({
         cfg,
@@ -548,8 +562,6 @@ export const registerTelegramNativeCommands = ({
             isGroup,
             isForum,
             resolvedThreadId,
-            senderId,
-            topicAgentId: topicConfig?.agentId,
           });
           if (!runtimeContext) {
             return;
@@ -657,7 +669,7 @@ export const registerTelegramNativeCommands = ({
             WasMentioned: true,
             CommandAuthorized: commandAuthorized,
             CommandSource: "native" as const,
-            SessionKey: `agent:${route.agentId}:telegram:slash:${senderId || chatId}`,
+            SessionKey: `telegram:slash:${senderId || chatId}`,
             AccountId: route.accountId,
             CommandTargetSessionKey: sessionKey,
             MessageThreadId: threadSpec.id,
@@ -776,8 +788,6 @@ export const registerTelegramNativeCommands = ({
             isGroup,
             isForum,
             resolvedThreadId,
-            senderId,
-            topicAgentId: auth.topicConfig?.agentId,
           });
           if (!runtimeContext) {
             return;

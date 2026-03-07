@@ -1,7 +1,6 @@
 import {
   applyAccountNameToChannelSection,
   buildChannelConfigSchema,
-  collectStatusIssuesFromLastError,
   DEFAULT_ACCOUNT_ID,
   deleteAccountFromConfigSection,
   formatPairingApproveHint,
@@ -267,7 +266,21 @@ export const imessagePlugin: ChannelPlugin<ResolvedIMessageAccount> = {
       cliPath: null,
       dbPath: null,
     },
-    collectStatusIssues: (accounts) => collectStatusIssuesFromLastError("imessage", accounts),
+    collectStatusIssues: (accounts) =>
+      accounts.flatMap((account) => {
+        const lastError = typeof account.lastError === "string" ? account.lastError.trim() : "";
+        if (!lastError) {
+          return [];
+        }
+        return [
+          {
+            channel: "imessage",
+            accountId: account.accountId,
+            kind: "runtime",
+            message: `Channel error: ${lastError}`,
+          },
+        ];
+      }),
     buildChannelSummary: ({ snapshot }) => ({
       configured: snapshot.configured ?? false,
       running: snapshot.running ?? false,

@@ -278,7 +278,6 @@ describe("buildServiceEnvironment", () => {
     expect(env.OPENCLAW_SERVICE_KIND).toBe("gateway");
     expect(typeof env.OPENCLAW_SERVICE_VERSION).toBe("string");
     expect(env.OPENCLAW_SYSTEMD_UNIT).toBe("openclaw-gateway.service");
-    expect(env.OPENCLAW_WINDOWS_TASK_NAME).toBe("OpenClaw Gateway");
     if (process.platform === "darwin") {
       expect(env.OPENCLAW_LAUNCHD_LABEL).toBe("ai.openclaw.gateway");
     }
@@ -306,7 +305,6 @@ describe("buildServiceEnvironment", () => {
       port: 18789,
     });
     expect(env.OPENCLAW_SYSTEMD_UNIT).toBe("openclaw-gateway-work.service");
-    expect(env.OPENCLAW_WINDOWS_TASK_NAME).toBe("OpenClaw Gateway (work)");
     if (process.platform === "darwin") {
       expect(env.OPENCLAW_LAUNCHD_LABEL).toBe("ai.openclaw.work");
     }

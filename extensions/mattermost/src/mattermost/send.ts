@@ -205,19 +205,13 @@ async function resolveTargetChannelId(params: {
   return channel.id;
 }
 
-type MattermostSendContext = {
-  cfg: OpenClawConfig;
-  accountId: string;
-  token: string;
-  baseUrl: string;
-  channelId: string;
-};
-
-async function resolveMattermostSendContext(
+export async function sendMessageMattermost(
   to: string,
+  text: string,
   opts: MattermostSendOpts = {},
-): Promise<MattermostSendContext> {
+): Promise<MattermostSendResult> {
   const core = getCore();
+  const logger = core.logging.getChildLogger({ module: "mattermost" });
   const cfg = opts.cfg ?? core.config.loadConfig();
   const account = resolveMattermostAccount({
     cfg,
@@ -242,34 +236,6 @@ async function resolveMattermostSendContext(
     baseUrl,
     token,
   });
-
-  return {
-    cfg,
-    accountId: account.accountId,
-    token,
-    baseUrl,
-    channelId,
-  };
-}
-
-export async function resolveMattermostSendChannelId(
-  to: string,
-  opts: MattermostSendOpts = {},
-): Promise<string> {
-  return (await resolveMattermostSendContext(to, opts)).channelId;
-}
-
-export async function sendMessageMattermost(
-  to: string,
-  text: string,
-  opts: MattermostSendOpts = {},
-): Promise<MattermostSendResult> {
-  const core = getCore();
-  const logger = core.logging.getChildLogger({ module: "mattermost" });
-  const { cfg, accountId, token, baseUrl, channelId } = await resolveMattermostSendContext(
-    to,
-    opts,
-  );
 
   const client = createMattermostClient({ baseUrl, botToken: token });
   let message = text?.trim() ?? "";
@@ -303,7 +269,7 @@ export async function sendMessageMattermost(
     const tableMode = core.channel.text.resolveMarkdownTableMode({
       cfg,
       channel: "mattermost",
-      accountId,
+      accountId: account.accountId,
     });
     message = core.channel.text.convertMarkdownTables(message, tableMode);
   }
@@ -325,7 +291,7 @@ export async function sendMessageMattermost(
 
   core.channel.activity.record({
     channel: "mattermost",
-    accountId,
+    accountId: account.accountId,
     direction: "outbound",
   });
 

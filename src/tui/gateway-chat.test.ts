@@ -118,7 +118,7 @@ describe("resolveGatewayConnection", () => {
       gateway: {
         mode: "local",
         auth: {
-          password: "config-password", // pragma: allowlist secret
+          password: "config-password",
         },
       },
     });
@@ -134,7 +134,7 @@ describe("resolveGatewayConnection", () => {
         mode: "local",
         auth: {
           token: "config-token",
-          password: "config-password", // pragma: allowlist secret
+          password: "config-password",
         },
       },
     });
@@ -180,15 +180,13 @@ describe("resolveGatewayConnection", () => {
     loadConfig.mockReturnValue({
       gateway: {
         mode: "remote",
-        remote: { url: "wss://remote.example/ws", token: "remote-token", password: "remote-pass" }, // pragma: allowlist secret
+        remote: { url: "wss://remote.example/ws", token: "remote-token", password: "remote-pass" },
       },
     });
 
-    const gatewayPasswordEnv = "OPENCLAW_GATEWAY_PASSWORD"; // pragma: allowlist secret
-    const gatewayPassword = "env-pass"; // pragma: allowlist secret
-    await withEnvAsync({ [gatewayPasswordEnv]: gatewayPassword }, async () => {
+    await withEnvAsync({ OPENCLAW_GATEWAY_PASSWORD: "env-pass" }, async () => {
       const result = await resolveGatewayConnection({});
-      expect(result.password).toBe(gatewayPassword);
+      expect(result.password).toBe("env-pass");
     });
   });
 
@@ -265,12 +263,12 @@ describe("resolveGatewayConnection", () => {
     const tokenExecProgram = [
       "const fs=require('node:fs');",
       `fs.writeFileSync(${JSON.stringify(tokenMarker)},'1');`,
-      "process.stdout.write(JSON.stringify({ protocolVersion: 1, values: { TOKEN_SECRET: 'token-from-exec' } }));", // pragma: allowlist secret
+      "process.stdout.write(JSON.stringify({ protocolVersion: 1, values: { TOKEN_SECRET: 'token-from-exec' } }));",
     ].join("");
     const passwordExecProgram = [
       "const fs=require('node:fs');",
       `fs.writeFileSync(${JSON.stringify(passwordMarker)},'1');`,
-      "process.stdout.write(JSON.stringify({ protocolVersion: 1, values: { PASSWORD_SECRET: 'password-from-exec' } }));", // pragma: allowlist secret
+      "process.stdout.write(JSON.stringify({ protocolVersion: 1, values: { PASSWORD_SECRET: 'password-from-exec' } }));",
     ].join("");
 
     loadConfig.mockReturnValue({
@@ -318,12 +316,12 @@ describe("resolveGatewayConnection", () => {
     const tokenExecProgram = [
       "const fs=require('node:fs');",
       `fs.writeFileSync(${JSON.stringify(tokenMarker)},'1');`,
-      "process.stdout.write(JSON.stringify({ protocolVersion: 1, values: { TOKEN_SECRET: 'token-from-exec' } }));", // pragma: allowlist secret
+      "process.stdout.write(JSON.stringify({ protocolVersion: 1, values: { TOKEN_SECRET: 'token-from-exec' } }));",
     ].join("");
     const passwordExecProgram = [
       "const fs=require('node:fs');",
       `fs.writeFileSync(${JSON.stringify(passwordMarker)},'1');`,
-      "process.stdout.write(JSON.stringify({ protocolVersion: 1, values: { PASSWORD_SECRET: 'password-from-exec' } }));", // pragma: allowlist secret
+      "process.stdout.write(JSON.stringify({ protocolVersion: 1, values: { PASSWORD_SECRET: 'password-from-exec' } }));",
     ].join("");
 
     loadConfig.mockReturnValue({

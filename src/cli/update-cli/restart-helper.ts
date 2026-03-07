@@ -3,7 +3,6 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { DEFAULT_GATEWAY_PORT } from "../../config/paths.js";
-import { quoteCmdScriptArg } from "../../daemon/cmd-argv.js";
 import {
   resolveGatewayLaunchAgentLabel,
   resolveGatewaySystemdServiceName,
@@ -162,7 +161,7 @@ del "%~f0"
 export async function runRestartScript(scriptPath: string): Promise<void> {
   const isWindows = process.platform === "win32";
   const file = isWindows ? "cmd.exe" : "/bin/sh";
-  const args = isWindows ? ["/d", "/s", "/c", quoteCmdScriptArg(scriptPath)] : [scriptPath];
+  const args = isWindows ? ["/c", scriptPath] : [scriptPath];
 
   const child = spawn(file, args, {
     detached: true,

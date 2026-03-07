@@ -248,17 +248,17 @@ describe("resolveProviderAuths key normalization", () => {
               zai: {
                 baseUrl: "https://api.z.ai",
                 models: [modelDef],
-                apiKey: "cfg-zai-key", // pragma: allowlist secret
+                apiKey: "cfg-zai-key",
               },
               minimax: {
                 baseUrl: "https://api.minimaxi.com",
                 models: [modelDef],
-                apiKey: "cfg-minimax-key", // pragma: allowlist secret
+                apiKey: "cfg-minimax-key",
               },
               xiaomi: {
                 baseUrl: "https://api.xiaomi.example",
                 models: [modelDef],
-                apiKey: "cfg-xiaomi-key", // pragma: allowlist secret
+                apiKey: "cfg-xiaomi-key",
               },
             },
           },

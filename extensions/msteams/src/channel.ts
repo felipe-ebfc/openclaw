@@ -4,8 +4,7 @@ import type {
   OpenClawConfig,
 } from "openclaw/plugin-sdk/msteams";
 import {
-  buildProbeChannelStatusSummary,
-  buildRuntimeAccountStatusSnapshot,
+  buildBaseChannelStatusSummary,
   buildChannelConfigSchema,
   createDefaultChannelRuntimeState,
   DEFAULT_ACCOUNT_ID,
@@ -251,43 +250,11 @@ export const msteamsPlugin: ChannelPlugin<ResolvedMSTeamsAccount> = {
         name: undefined as string | undefined,
         note: undefined as string | undefined,
       }));
-      type ResolveTargetResultEntry = (typeof results)[number];
-      type PendingTargetEntry = { input: string; query: string; index: number };
 
       const stripPrefix = (value: string) => normalizeMSTeamsUserInput(value);
-      const markPendingLookupFailed = (pending: PendingTargetEntry[]) => {
-        pending.forEach(({ index }) => {
-          const entry = results[index];
-          if (entry) {
-            entry.note = "lookup failed";
-          }
-        });
-      };
-      const resolvePending = async <T>(
-        pending: PendingTargetEntry[],
-        resolveEntries: (entries: string[]) => Promise<T[]>,
-        applyResolvedEntry: (target: ResolveTargetResultEntry, entry: T) => void,
-      ) => {
-        if (pending.length === 0) {
-          return;
-        }
-        try {
-          const resolved = await resolveEntries(pending.map((entry) => entry.query));
-          resolved.forEach((entry, idx) => {
-            const target = results[pending[idx]?.index ?? -1];
-            if (!target) {
-              return;
-            }
-            applyResolvedEntry(target, entry);
-          });
-        } catch (err) {
-          runtime.error?.(`msteams resolve failed: ${String(err)}`);
-          markPendingLookupFailed(pending);
-        }
-      };
 
       if (kind === "user") {
-        const pending: PendingTargetEntry[] = [];
+        const pending: Array<{ input: string; query: string; index: number }> = [];
         results.forEach((entry, index) => {
           const trimmed = entry.input.trim();
           if (!trimmed) {
@@ -303,21 +270,37 @@ export const msteamsPlugin: ChannelPlugin<ResolvedMSTeamsAccount> = {
           pending.push({ input: entry.input, query: cleaned, index });
         });
 
-        await resolvePending(
-          pending,
-          (entries) => resolveMSTeamsUserAllowlist({ cfg, entries }),
-          (target, entry) => {
-            target.resolved = entry.resolved;
-            target.id = entry.id;
-            target.name = entry.name;
-            target.note = entry.note;
-          },
-        );
+        if (pending.length > 0) {
+          try {
+            const resolved = await resolveMSTeamsUserAllowlist({
+              cfg,
+              entries: pending.map((entry) => entry.query),
+            });
+            resolved.forEach((entry, idx) => {
+              const target = results[pending[idx]?.index ?? -1];
+              if (!target) {
+                return;
+              }
+              target.resolved = entry.resolved;
+              target.id = entry.id;
+              target.name = entry.name;
+              target.note = entry.note;
+            });
+          } catch (err) {
+            runtime.error?.(`msteams resolve failed: ${String(err)}`);
+            pending.forEach(({ index }) => {
+              const entry = results[index];
+              if (entry) {
+                entry.note = "lookup failed";
+              }
+            });
+          }
+        }
 
         return results;
       }
 
-      const pending: PendingTargetEntry[] = [];
+      const pending: Array<{ input: string; query: string; index: number }> = [];
       results.forEach((entry, index) => {
         const trimmed = entry.input.trim();
         if (!trimmed) {
@@ -340,32 +323,48 @@ export const msteamsPlugin: ChannelPlugin<ResolvedMSTeamsAccount> = {
         pending.push({ input: entry.input, query, index });
       });
 
-      await resolvePending(
-        pending,
-        (entries) => resolveMSTeamsChannelAllowlist({ cfg, entries }),
-        (target, entry) => {
-          if (!entry.resolved || !entry.teamId) {
-            target.resolved = false;
-            target.note = entry.note;
-            return;
-          }
-          target.resolved = true;
-          if (entry.channelId) {
-            target.id = `${entry.teamId}/${entry.channelId}`;
-            target.name =
-              entry.channelName && entry.teamName
-                ? `${entry.teamName}/${entry.channelName}`
-                : (entry.channelName ?? entry.teamName);
-          } else {
-            target.id = entry.teamId;
-            target.name = entry.teamName;
-            target.note = "team id";
-          }
-          if (entry.note) {
-            target.note = entry.note;
-          }
-        },
-      );
+      if (pending.length > 0) {
+        try {
+          const resolved = await resolveMSTeamsChannelAllowlist({
+            cfg,
+            entries: pending.map((entry) => entry.query),
+          });
+          resolved.forEach((entry, idx) => {
+            const target = results[pending[idx]?.index ?? -1];
+            if (!target) {
+              return;
+            }
+            if (!entry.resolved || !entry.teamId) {
+              target.resolved = false;
+              target.note = entry.note;
+              return;
+            }
+            target.resolved = true;
+            if (entry.channelId) {
+              target.id = `${entry.teamId}/${entry.channelId}`;
+              target.name =
+                entry.channelName && entry.teamName
+                  ? `${entry.teamName}/${entry.channelName}`
+                  : (entry.channelName ?? entry.teamName);
+            } else {
+              target.id = entry.teamId;
+              target.name = entry.teamName;
+              target.note = "team id";
+            }
+            if (entry.note) {
+              target.note = entry.note;
+            }
+          });
+        } catch (err) {
+          runtime.error?.(`msteams resolve failed: ${String(err)}`);
+          pending.forEach(({ index }) => {
+            const entry = results[index];
+            if (entry) {
+              entry.note = "lookup failed";
+            }
+          });
+        }
+      }
 
       return results;
     },
@@ -430,17 +429,23 @@ export const msteamsPlugin: ChannelPlugin<ResolvedMSTeamsAccount> = {
   outbound: msteamsOutbound,
   status: {
     defaultRuntime: createDefaultChannelRuntimeState(DEFAULT_ACCOUNT_ID, { port: null }),
-    buildChannelSummary: ({ snapshot }) =>
-      buildProbeChannelStatusSummary(snapshot, {
-        port: snapshot.port ?? null,
-      }),
+    buildChannelSummary: ({ snapshot }) => ({
+      ...buildBaseChannelStatusSummary(snapshot),
+      port: snapshot.port ?? null,
+      probe: snapshot.probe,
+      lastProbeAt: snapshot.lastProbeAt ?? null,
+    }),
     probeAccount: async ({ cfg }) => await probeMSTeams(cfg.channels?.msteams),
     buildAccountSnapshot: ({ account, runtime, probe }) => ({
       accountId: account.accountId,
       enabled: account.enabled,
       configured: account.configured,
-      ...buildRuntimeAccountStatusSnapshot({ runtime, probe }),
+      running: runtime?.running ?? false,
+      lastStartAt: runtime?.lastStartAt ?? null,
+      lastStopAt: runtime?.lastStopAt ?? null,
+      lastError: runtime?.lastError ?? null,
       port: runtime?.port ?? null,
+      probe,
     }),
   },
   gateway: {

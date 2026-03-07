@@ -1,7 +1,6 @@
 import type { OpenClawConfig } from "../../../config/config.js";
 import { hasConfiguredSecretInput } from "../../../config/types.secrets.js";
 import { DEFAULT_ACCOUNT_ID } from "../../../routing/session-key.js";
-import { inspectSlackAccount } from "../../../slack/account-inspect.js";
 import {
   listSlackAccountIds,
   resolveDefaultSlackAccountId,
@@ -200,8 +199,12 @@ export const slackOnboardingAdapter: ChannelOnboardingAdapter = {
   channel,
   getStatus: async ({ cfg }) => {
     const configured = listSlackAccountIds(cfg).some((accountId) => {
-      const account = inspectSlackAccount({ cfg, accountId });
-      return account.configured;
+      const account = resolveSlackAccount({ cfg, accountId });
+      const hasBotToken =
+        Boolean(account.botToken) || hasConfiguredSecretInput(account.config.botToken);
+      const hasAppToken =
+        Boolean(account.appToken) || hasConfiguredSecretInput(account.config.appToken);
+      return hasBotToken && hasAppToken;
     });
     return {
       channel,

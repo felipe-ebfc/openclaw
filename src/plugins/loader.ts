@@ -21,7 +21,7 @@ import { loadPluginManifestRegistry } from "./manifest-registry.js";
 import { isPathInside, safeStatSync } from "./path-safety.js";
 import { createPluginRegistry, type PluginRecord, type PluginRegistry } from "./registry.js";
 import { setActivePluginRegistry } from "./runtime.js";
-import { createPluginRuntime, type CreatePluginRuntimeOptions } from "./runtime/index.js";
+import { createPluginRuntime } from "./runtime/index.js";
 import type { PluginRuntime } from "./runtime/types.js";
 import { validateJsonSchemaValue } from "./schema-validator.js";
 import type {
@@ -38,7 +38,6 @@ export type PluginLoadOptions = {
   workspaceDir?: string;
   logger?: PluginLogger;
   coreGatewayHandlers?: Record<string, GatewayRequestHandler>;
-  runtimeOptions?: CreatePluginRuntimeOptions;
   cache?: boolean;
   mode?: "full" | "validate";
 };
@@ -504,7 +503,7 @@ export function loadOpenClawPlugins(options: PluginLoadOptions = {}): PluginRegi
   // not eagerly load every channel runtime dependency.
   let resolvedRuntime: PluginRuntime | null = null;
   const resolveRuntime = (): PluginRuntime => {
-    resolvedRuntime ??= createPluginRuntime(options.runtimeOptions);
+    resolvedRuntime ??= createPluginRuntime();
     return resolvedRuntime;
   };
   const runtime = new Proxy({} as PluginRuntime, {

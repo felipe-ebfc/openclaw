@@ -23,7 +23,6 @@ export type GatewayRuntimeConfig = {
   bindHost: string;
   controlUiEnabled: boolean;
   openAiChatCompletionsEnabled: boolean;
-  openAiChatCompletionsConfig?: import("../config/types.gateway.js").GatewayHttpChatCompletionsConfig;
   openResponsesEnabled: boolean;
   openResponsesConfig?: import("../config/types.gateway.js").GatewayHttpResponsesConfig;
   strictTransportSecurityHeader?: string;
@@ -74,9 +73,10 @@ export async function resolveGatewayRuntimeConfig(params: {
   }
   const controlUiEnabled =
     params.controlUiEnabled ?? params.cfg.gateway?.controlUi?.enabled ?? true;
-  const openAiChatCompletionsConfig = params.cfg.gateway?.http?.endpoints?.chatCompletions;
   const openAiChatCompletionsEnabled =
-    params.openAiChatCompletionsEnabled ?? openAiChatCompletionsConfig?.enabled ?? false;
+    params.openAiChatCompletionsEnabled ??
+    params.cfg.gateway?.http?.endpoints?.chatCompletions?.enabled ??
+    false;
   const openResponsesConfig = params.cfg.gateway?.http?.endpoints?.responses;
   const openResponsesEnabled = params.openResponsesEnabled ?? openResponsesConfig?.enabled ?? false;
   const strictTransportSecurityConfig =
@@ -168,9 +168,6 @@ export async function resolveGatewayRuntimeConfig(params: {
     bindHost,
     controlUiEnabled,
     openAiChatCompletionsEnabled,
-    openAiChatCompletionsConfig: openAiChatCompletionsConfig
-      ? { ...openAiChatCompletionsConfig, enabled: openAiChatCompletionsEnabled }
-      : undefined,
     openResponsesEnabled,
     openResponsesConfig: openResponsesConfig
       ? { ...openResponsesConfig, enabled: openResponsesEnabled }

@@ -2,7 +2,6 @@ import {
   DEFAULT_ACCOUNT_ID,
   buildPendingHistoryContextFromMap,
   clearHistoryEntriesIfEnabled,
-  dispatchReplyFromConfigWithSettledDispatcher,
   DEFAULT_GROUP_HISTORY_LIMIT,
   createScopedPairingAccess,
   logInboundDrop,
@@ -12,7 +11,6 @@ import {
   isDangerousNameMatchingEnabled,
   readStoreAllowFromForDmPolicy,
   resolveMentionGating,
-  resolveInboundSessionEnvelopeContext,
   formatAllowlistMatchMeta,
   resolveEffectiveAllowFromLists,
   resolveDmGroupAccessWithLists,
@@ -453,9 +451,12 @@ export function createMSTeamsMessageHandler(deps: MSTeamsMessageHandlerDeps) {
 
     const mediaPayload = buildMSTeamsMediaPayload(mediaList);
     const envelopeFrom = isDirectMessage ? senderName : conversationType;
-    const { storePath, envelopeOptions, previousTimestamp } = resolveInboundSessionEnvelopeContext({
-      cfg,
+    const storePath = core.channel.session.resolveStorePath(cfg.session?.store, {
       agentId: route.agentId,
+    });
+    const envelopeOptions = core.channel.reply.resolveEnvelopeFormatOptions(cfg);
+    const previousTimestamp = core.channel.session.readSessionUpdatedAt({
+      storePath,
       sessionKey: route.sessionKey,
     });
     const body = core.channel.reply.formatAgentEnvelope({
@@ -558,14 +559,18 @@ export function createMSTeamsMessageHandler(deps: MSTeamsMessageHandlerDeps) {
 
     log.info("dispatching to agent", { sessionKey: route.sessionKey });
     try {
-      const { queuedFinal, counts } = await dispatchReplyFromConfigWithSettledDispatcher({
-        cfg,
-        ctxPayload,
+      const { queuedFinal, counts } = await core.channel.reply.withReplyDispatcher({
         dispatcher,
         onSettled: () => {
           markDispatchIdle();
         },
-        replyOptions,
+        run: () =>
+          core.channel.reply.dispatchReplyFromConfig({
+            ctx: ctxPayload,
+            cfg,
+            dispatcher,
+            replyOptions,
+          }),
       });
 
       log.info("dispatch complete", { queuedFinal, counts });

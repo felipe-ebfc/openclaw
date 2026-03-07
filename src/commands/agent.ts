@@ -38,7 +38,6 @@ import { buildWorkspaceSkillSnapshot } from "../agents/skills.js";
 import { getSkillsSnapshotVersion } from "../agents/skills/refresh.js";
 import { resolveAgentTimeoutMs } from "../agents/timeout.js";
 import { ensureAgentWorkspace } from "../agents/workspace.js";
-import { normalizeReplyPayload } from "../auto-reply/reply/normalize-reply.js";
 import {
   formatThinkingLevels,
   formatXHighModelHint,
@@ -48,11 +47,6 @@ import {
   type ThinkLevel,
   type VerboseLevel,
 } from "../auto-reply/thinking.js";
-import {
-  isSilentReplyPrefixText,
-  isSilentReplyText,
-  SILENT_REPLY_TOKEN,
-} from "../auto-reply/tokens.js";
 import { formatCliCommand } from "../cli/command-format.js";
 import { resolveCommandSecretRefsViaGateway } from "../cli/command-secret-gateway.js";
 import { getAgentRuntimeCommandSecretTargetIds } from "../cli/command-secret-targets.js";
@@ -154,80 +148,6 @@ function prependInternalEventContext(
   return [renderedEvents, body].filter(Boolean).join("\n\n");
 }
 
-function createAcpVisibleTextAccumulator() {
-  let pendingSilentPrefix = "";
-  let visibleText = "";
-  const startsWithWordChar = (chunk: string): boolean => /^[\p{L}\p{N}]/u.test(chunk);
-
-  const resolveNextCandidate = (base: string, chunk: string): string => {
-    if (!base) {
-      return chunk;
-    }
-    if (
-      isSilentReplyText(base, SILENT_REPLY_TOKEN) &&
-      !chunk.startsWith(base) &&
-      startsWithWordChar(chunk)
-    ) {
-      return chunk;
-    }
-    // Some ACP backends emit cumulative snapshots even on text_delta-style hooks.
-    // Accept those only when they strictly extend the buffered text.
-    if (chunk.startsWith(base) && chunk.length > base.length) {
-      return chunk;
-    }
-    return `${base}${chunk}`;
-  };
-
-  const mergeVisibleChunk = (base: string, chunk: string): { text: string; delta: string } => {
-    if (!base) {
-      return { text: chunk, delta: chunk };
-    }
-    if (chunk.startsWith(base) && chunk.length > base.length) {
-      const delta = chunk.slice(base.length);
-      return { text: chunk, delta };
-    }
-    return {
-      text: `${base}${chunk}`,
-      delta: chunk,
-    };
-  };
-
-  return {
-    consume(chunk: string): { text: string; delta: string } | null {
-      if (!chunk) {
-        return null;
-      }
-
-      if (!visibleText) {
-        const leadCandidate = resolveNextCandidate(pendingSilentPrefix, chunk);
-        const trimmedLeadCandidate = leadCandidate.trim();
-        if (
-          isSilentReplyText(trimmedLeadCandidate, SILENT_REPLY_TOKEN) ||
-          isSilentReplyPrefixText(trimmedLeadCandidate, SILENT_REPLY_TOKEN)
-        ) {
-          pendingSilentPrefix = leadCandidate;
-          return null;
-        }
-        if (pendingSilentPrefix) {
-          pendingSilentPrefix = "";
-          visibleText = leadCandidate;
-          return {
-            text: visibleText,
-            delta: leadCandidate,
-          };
-        }
-      }
-
-      const nextVisible = mergeVisibleChunk(visibleText, chunk);
-      visibleText = nextVisible.text;
-      return nextVisible.delta ? nextVisible : null;
-    },
-    finalize(): string {
-      return visibleText.trim();
-    },
-  };
-}
-
 function runAgentAttempt(params: {
   providerOverride: string;
   modelOverride: string;
@@ -254,7 +174,7 @@ function runAgentAttempt(params: {
   primaryProvider: string;
   sessionStore?: Record<string, SessionEntry>;
   storePath?: string;
-  allowTransientCooldownProbe?: boolean;
+  allowRateLimitCooldownProbe?: boolean;
 }) {
   const effectivePrompt = resolveFallbackRetryPrompt({
     body: params.body,
@@ -405,7 +325,7 @@ function runAgentAttempt(params: {
     inputProvenance: params.opts.inputProvenance,
     streamParams: params.opts.streamParams,
     agentDir: params.agentDir,
-    allowTransientCooldownProbe: params.allowTransientCooldownProbe,
+    allowRateLimitCooldownProbe: params.allowRateLimitCooldownProbe,
     onAgentEvent: params.onAgentEvent,
     bootstrapPromptWarningSignaturesSeen,
     bootstrapPromptWarningSignature,
@@ -572,7 +492,7 @@ async function agentCommandInternal(
         },
       });
 
-      const visibleTextAccumulator = createAcpVisibleTextAccumulator();
+      let streamedText = "";
       let stopReason: string | undefined;
       try {
         const dispatchPolicyError = resolveAcpDispatchPolicyError(cfg);
@@ -608,16 +528,13 @@ async function agentCommandInternal(
             if (!event.text) {
               return;
             }
-            const visibleUpdate = visibleTextAccumulator.consume(event.text);
-            if (!visibleUpdate) {
-              return;
-            }
+            streamedText += event.text;
             emitAgentEvent({
               runId,
               stream: "assistant",
               data: {
-                text: visibleUpdate.text,
-                delta: visibleUpdate.delta,
+                text: streamedText,
+                delta: event.text,
               },
             });
           },
@@ -649,10 +566,14 @@ async function agentCommandInternal(
         },
       });
 
-      const normalizedFinalPayload = normalizeReplyPayload({
-        text: visibleTextAccumulator.finalize(),
-      });
-      const payloads = normalizedFinalPayload ? [normalizedFinalPayload] : [];
+      const finalText = streamedText.trim();
+      const payloads = finalText
+        ? [
+            {
+              text: finalText,
+            },
+          ]
+        : [];
       const result = {
         payloads,
         meta: {
@@ -947,7 +868,7 @@ async function agentCommandInternal(
             primaryProvider: provider,
             sessionStore,
             storePath,
-            allowTransientCooldownProbe: runOptions?.allowTransientCooldownProbe,
+            allowRateLimitCooldownProbe: runOptions?.allowRateLimitCooldownProbe,
             onAgentEvent: (evt) => {
               // Track lifecycle end for fallback emission below.
               if (

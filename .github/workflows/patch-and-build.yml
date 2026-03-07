@@ -1,0 +1,71 @@
+name: Patch and Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: patch-build-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  patch-and-build:
+    name: Apply patches → build → test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          check-latest: false
+
+      - name: Setup pnpm
+        run: |
+          corepack enable
+          for attempt in 1 2 3; do
+            if corepack prepare pnpm@10.23.0 --activate; then
+              pnpm -v
+              break
+            fi
+            echo "corepack prepare failed (attempt $attempt/3). Retrying..."
+            sleep $((attempt * 10))
+          done
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-pnpm-store-node22-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-node22-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply patches
+        run: |
+          chmod +x scripts/apply-patches.sh
+          scripts/apply-patches.sh
+
+      - name: Build
+        run: pnpm build
+
+      - name: Bundle A2UI canvas (required for tests)
+        run: pnpm canvas:a2ui:bundle
+
+      - name: Run tests
+        env:
+          # Limit workers to avoid OOM on GitHub-hosted runners (2-core, ~7GB RAM)
+          OPENCLAW_TEST_WORKERS: 2
+          NODE_OPTIONS: --max-old-space-size=4096
+        run: pnpm test

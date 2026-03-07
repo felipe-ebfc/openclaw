@@ -126,20 +126,6 @@ export type Listener = {
   stop(): void;
 };
 
-type DeliveryEventMessage = {
-  msgId: string;
-  cliMsgId: string;
-  uidFrom: string;
-  idTo: string;
-  msgType: string;
-  st: number;
-  at: number;
-  cmd: number;
-  ts: string | number;
-};
-
-type DeliveryEventMessages = DeliveryEventMessage | DeliveryEventMessage[];
-
 export type API = {
   listener: Listener;
   getContext(): {
@@ -199,10 +185,57 @@ export type API = {
   ): Promise<unknown>;
   sendDeliveredEvent(
     isSeen: boolean,
-    messages: DeliveryEventMessages,
+    messages:
+      | {
+          msgId: string;
+          cliMsgId: string;
+          uidFrom: string;
+          idTo: string;
+          msgType: string;
+          st: number;
+          at: number;
+          cmd: number;
+          ts: string | number;
+        }
+      | Array<{
+          msgId: string;
+          cliMsgId: string;
+          uidFrom: string;
+          idTo: string;
+          msgType: string;
+          st: number;
+          at: number;
+          cmd: number;
+          ts: string | number;
+        }>,
     type?: number,
   ): Promise<unknown>;
-  sendSeenEvent(messages: DeliveryEventMessages, type?: number): Promise<unknown>;
+  sendSeenEvent(
+    messages:
+      | {
+          msgId: string;
+          cliMsgId: string;
+          uidFrom: string;
+          idTo: string;
+          msgType: string;
+          st: number;
+          at: number;
+          cmd: number;
+          ts: string | number;
+        }
+      | Array<{
+          msgId: string;
+          cliMsgId: string;
+          uidFrom: string;
+          idTo: string;
+          msgType: string;
+          st: number;
+          at: number;
+          cmd: number;
+          ts: string | number;
+        }>,
+    type?: number,
+  ): Promise<unknown>;
 };
 
 type ZaloCtor = new (options?: { logging?: boolean; selfListen?: boolean }) => {

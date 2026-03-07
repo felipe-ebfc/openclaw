@@ -15,35 +15,18 @@ export type ResolveAssignmentsFromSnapshotResult = {
   diagnostics: string[];
 };
 
-export type UnresolvedCommandSecretAssignment = {
-  path: string;
-  pathSegments: string[];
-};
-
-export type AnalyzeAssignmentsFromSnapshotResult = {
-  assignments: CommandSecretAssignment[];
-  diagnostics: string[];
-  unresolved: UnresolvedCommandSecretAssignment[];
-  inactive: UnresolvedCommandSecretAssignment[];
-};
-
-export function analyzeCommandSecretAssignmentsFromSnapshot(params: {
+export function collectCommandSecretAssignmentsFromSnapshot(params: {
   sourceConfig: OpenClawConfig;
   resolvedConfig: OpenClawConfig;
+  commandName: string;
   targetIds: ReadonlySet<string>;
   inactiveRefPaths?: ReadonlySet<string>;
-  allowedPaths?: ReadonlySet<string>;
-}): AnalyzeAssignmentsFromSnapshotResult {
+}): ResolveAssignmentsFromSnapshotResult {
   const defaults = params.sourceConfig.secrets?.defaults;
   const assignments: CommandSecretAssignment[] = [];
   const diagnostics: string[] = [];
-  const unresolved: UnresolvedCommandSecretAssignment[] = [];
-  const inactive: UnresolvedCommandSecretAssignment[] = [];
 
   for (const target of discoverConfigSecretTargetsByIds(params.sourceConfig, params.targetIds)) {
-    if (params.allowedPaths && !params.allowedPaths.has(target.path)) {
-      continue;
-    }
     const { explicitRef, ref } = resolveSecretInputRef({
       value: target.value,
       refValue: target.refValue,
@@ -60,17 +43,11 @@ export function analyzeCommandSecretAssignmentsFromSnapshot(params: {
         diagnostics.push(
           `${target.path}: secret ref is configured on an inactive surface; skipping command-time assignment.`,
         );
-        inactive.push({
-          path: target.path,
-          pathSegments: [...target.pathSegments],
-        });
         continue;
       }
-      unresolved.push({
-        path: target.path,
-        pathSegments: [...target.pathSegments],
-      });
-      continue;
+      throw new Error(
+        `${params.commandName}: ${target.path} is unresolved in the active runtime snapshot.`,
+      );
     }
 
     assignments.push({
@@ -79,40 +56,12 @@ export function analyzeCommandSecretAssignmentsFromSnapshot(params: {
       value: resolved,
     });
 
-    const hasCompetingSiblingRef =
-      target.entry.secretShape === "sibling_ref" && explicitRef && inlineCandidateRef; // pragma: allowlist secret
-    if (hasCompetingSiblingRef) {
+    if (target.entry.secretShape === "sibling_ref" && explicitRef && inlineCandidateRef) {
       diagnostics.push(
         `${target.path}: both inline and sibling ref were present; sibling ref took precedence.`,
       );
     }
   }
 
-  return { assignments, diagnostics, unresolved, inactive };
-}
-
-export function collectCommandSecretAssignmentsFromSnapshot(params: {
-  sourceConfig: OpenClawConfig;
-  resolvedConfig: OpenClawConfig;
-  commandName: string;
-  targetIds: ReadonlySet<string>;
-  inactiveRefPaths?: ReadonlySet<string>;
-  allowedPaths?: ReadonlySet<string>;
-}): ResolveAssignmentsFromSnapshotResult {
-  const analyzed = analyzeCommandSecretAssignmentsFromSnapshot({
-    sourceConfig: params.sourceConfig,
-    resolvedConfig: params.resolvedConfig,
-    targetIds: params.targetIds,
-    inactiveRefPaths: params.inactiveRefPaths,
-    allowedPaths: params.allowedPaths,
-  });
-  if (analyzed.unresolved.length > 0) {
-    throw new Error(
-      `${params.commandName}: ${analyzed.unresolved[0]?.path ?? "target"} is unresolved in the active runtime snapshot.`,
-    );
-  }
-  return {
-    assignments: analyzed.assignments,
-    diagnostics: analyzed.diagnostics,
-  };
+  return { assignments, diagnostics };
 }

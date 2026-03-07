@@ -1,6 +1,5 @@
 export type { ChannelPlugin } from "../channels/plugins/types.plugin.js";
 export type { OpenClawConfig } from "../config/config.js";
-export type { InspectedSlackAccount } from "../slack/account-inspect.js";
 export type { ResolvedSlackAccount } from "../slack/accounts.js";
 export type { PluginRuntime } from "../plugins/runtime/types.js";
 export type { OpenClawPluginApi } from "../plugins/types.js";
@@ -28,12 +27,6 @@ export {
   resolveSlackAccount,
   resolveSlackReplyToMode,
 } from "../slack/accounts.js";
-export { inspectSlackAccount } from "../slack/account-inspect.js";
-export {
-  projectCredentialSnapshotFields,
-  resolveConfiguredFromCredentialStatuses,
-  resolveConfiguredFromRequiredCredentialStatuses,
-} from "../channels/account-snapshot-fields.js";
 export {
   listSlackDirectoryGroupsFromConfig,
   listSlackDirectoryPeersFromConfig,

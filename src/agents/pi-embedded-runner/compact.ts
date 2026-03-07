@@ -11,10 +11,6 @@ import { resolveHeartbeatPrompt } from "../../auto-reply/heartbeat.js";
 import type { ReasoningLevel, ThinkLevel } from "../../auto-reply/thinking.js";
 import { resolveChannelCapabilities } from "../../config/channel-capabilities.js";
 import type { OpenClawConfig } from "../../config/config.js";
-import {
-  ensureContextEnginesInitialized,
-  resolveContextEngine,
-} from "../../context-engine/index.js";
 import { createInternalHookEvent, triggerInternalHook } from "../../hooks/internal-hooks.js";
 import { getMachineDisplayName } from "../../infra/machine-name.js";
 import { generateSecureToken } from "../../infra/secure-random.js";
@@ -33,12 +29,10 @@ import { resolveSessionAgentIds } from "../agent-scope.js";
 import type { ExecElevatedDefaults } from "../bash-tools.js";
 import { makeBootstrapWarn, resolveBootstrapContextForRun } from "../bootstrap-files.js";
 import { listChannelSupportedActions, resolveChannelMessageToolHints } from "../channel-tools.js";
-import { resolveContextWindowInfo } from "../context-window-guard.js";
 import { formatUserTime, resolveUserTimeFormat, resolveUserTimezone } from "../date-time.js";
-import { DEFAULT_CONTEXT_TOKENS, DEFAULT_MODEL, DEFAULT_PROVIDER } from "../defaults.js";
+import { DEFAULT_MODEL, DEFAULT_PROVIDER } from "../defaults.js";
 import { resolveOpenClawDocsPath } from "../docs-path.js";
 import { getApiKeyForModel, resolveModelAuthMode } from "../model-auth.js";
-import { supportsModelTools } from "../model-tool-support.js";
 import { ensureOpenClawModelsJson } from "../models-config.js";
 import { resolveOwnerDisplaySetting } from "../owner-display.js";
 import {
@@ -121,8 +115,6 @@ export type CompactEmbeddedPiSessionParams = {
   reasoningLevel?: ReasoningLevel;
   bashElevated?: ExecElevatedDefaults;
   customInstructions?: string;
-  tokenBudget?: number;
-  force?: boolean;
   trigger?: "overflow" | "manual";
   diagId?: string;
   attempt?: number;
@@ -401,10 +393,7 @@ export async function compactEmbeddedPiSessionDirect(
       modelContextWindowTokens: model.contextWindow,
       modelAuthMode: resolveModelAuthMode(model.provider, params.config),
     });
-    const tools = sanitizeToolsForGoogle({
-      tools: supportsModelTools(model) ? toolsRaw : [],
-      provider,
-    });
+    const tools = sanitizeToolsForGoogle({ tools: toolsRaw, provider });
     const allowedToolNames = collectAllowedToolNames({ tools });
     logToolSchemasForGoogle({ tools, provider });
     const machineName = await getMachineDisplayName();
@@ -857,49 +846,6 @@ export async function compactEmbeddedPiSession(
   const enqueueGlobal =
     params.enqueue ?? ((task, opts) => enqueueCommandInLane(globalLane, task, opts));
   return enqueueCommandInLane(sessionLane, () =>
-    enqueueGlobal(async () => {
-      ensureContextEnginesInitialized();
-      const contextEngine = await resolveContextEngine(params.config);
-      try {
-        // Resolve token budget from model context window so the context engine
-        // knows the compaction target.  The runner's afterTurn path passes this
-        // automatically, but the /compact command path needs to compute it here.
-        const ceProvider = (params.provider ?? DEFAULT_PROVIDER).trim() || DEFAULT_PROVIDER;
-        const ceModelId = (params.model ?? DEFAULT_MODEL).trim() || DEFAULT_MODEL;
-        const agentDir = params.agentDir ?? resolveOpenClawAgentDir();
-        const { model: ceModel } = resolveModel(ceProvider, ceModelId, agentDir, params.config);
-        const ceCtxInfo = resolveContextWindowInfo({
-          cfg: params.config,
-          provider: ceProvider,
-          modelId: ceModelId,
-          modelContextWindow: ceModel?.contextWindow,
-          defaultTokens: DEFAULT_CONTEXT_TOKENS,
-        });
-        const result = await contextEngine.compact({
-          sessionId: params.sessionId,
-          sessionFile: params.sessionFile,
-          tokenBudget: ceCtxInfo.tokens,
-          customInstructions: params.customInstructions,
-          force: params.trigger === "manual",
-          legacyParams: params as Record<string, unknown>,
-        });
-        return {
-          ok: result.ok,
-          compacted: result.compacted,
-          reason: result.reason,
-          result: result.result
-            ? {
-                summary: result.result.summary ?? "",
-                firstKeptEntryId: result.result.firstKeptEntryId ?? "",
-                tokensBefore: result.result.tokensBefore,
-                tokensAfter: result.result.tokensAfter,
-                details: result.result.details,
-              }
-            : undefined,
-        };
-      } finally {
-        await contextEngine.dispose?.();
-      }
-    }),
+    enqueueGlobal(async () => compactEmbeddedPiSessionDirect(params)),
   );
 }

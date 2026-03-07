@@ -1,11 +1,6 @@
 import { resolveSessionAgentId } from "../../agents/agent-scope.js";
 import type { OpenClawConfig } from "../../config/config.js";
-import {
-  loadSessionStore,
-  resolveSessionStoreEntry,
-  resolveStorePath,
-  type SessionEntry,
-} from "../../config/sessions.js";
+import { loadSessionStore, resolveStorePath, type SessionEntry } from "../../config/sessions.js";
 import { logVerbose } from "../../globals.js";
 import { fireAndForgetHook } from "../../hooks/fire-and-forget.js";
 import { createInternalHookEvent, triggerInternalHook } from "../../hooks/internal-hooks.js";
@@ -70,7 +65,7 @@ const isInboundAudioContext = (ctx: FinalizedMsgContext): boolean => {
   return AUDIO_HEADER_RE.test(trimmed);
 };
 
-const resolveSessionStoreLookup = (
+const resolveSessionStoreEntry = (
   ctx: FinalizedMsgContext,
   cfg: OpenClawConfig,
 ): {
@@ -89,7 +84,7 @@ const resolveSessionStoreLookup = (
     const store = loadSessionStore(storePath);
     return {
       sessionKey,
-      entry: resolveSessionStoreEntry({ store, sessionKey }).existing,
+      entry: store[sessionKey.toLowerCase()] ?? store[sessionKey],
     };
   } catch {
     return {
@@ -169,7 +164,7 @@ export async function dispatchReplyFromConfig(params: {
     return { queuedFinal: false, counts: dispatcher.getQueuedCounts() };
   }
 
-  const sessionStoreEntry = resolveSessionStoreLookup(ctx, cfg);
+  const sessionStoreEntry = resolveSessionStoreEntry(ctx, cfg);
   const acpDispatchSessionKey = sessionStoreEntry.sessionKey ?? sessionKey;
   const inboundAudio = isInboundAudioContext(ctx);
   const sessionTtsAuto = normalizeTtsAutoMode(sessionStoreEntry.entry?.ttsAuto);
@@ -219,16 +214,10 @@ export async function dispatchReplyFromConfig(params: {
   const providerChannel = normalizeMessageChannel(ctx.Provider);
   const surfaceChannel = normalizeMessageChannel(ctx.Surface);
   // Prefer provider channel because surface may carry origin metadata in relayed flows.
-  const currentSurface = providerChannel ?? surfaceChannel;
-  const isInternalWebchatTurn =
-    currentSurface === INTERNAL_MESSAGE_CHANNEL &&
-    (surfaceChannel === INTERNAL_MESSAGE_CHANNEL || !surfaceChannel) &&
-    ctx.ExplicitDeliverRoute !== true;
+  // Exception: webchat provider uses surface as currentSurface (webchat is internal dispatcher)
+  const currentSurface = providerChannel === "webchat" ? surfaceChannel : (providerChannel ?? surfaceChannel);
   const shouldRouteToOriginating = Boolean(
-    !isInternalWebchatTurn &&
-    isRoutableChannel(originatingChannel) &&
-    originatingTo &&
-    originatingChannel !== currentSurface,
+    isRoutableChannel(originatingChannel) && originatingTo && originatingChannel !== currentSurface,
   );
   const shouldSuppressTyping =
     shouldRouteToOriginating || originatingChannel === INTERNAL_MESSAGE_CHANNEL;

@@ -100,26 +100,6 @@ vi.mock("./translator.js", () => ({
 describe("serveAcpGateway startup", () => {
   let serveAcpGateway: typeof import("./server.js").serveAcpGateway;
 
-  function getMockGateway() {
-    const gateway = mockState.gateways[0];
-    if (!gateway) {
-      throw new Error("Expected mocked gateway instance");
-    }
-    return gateway;
-  }
-
-  function captureProcessSignalHandlers() {
-    const signalHandlers = new Map<NodeJS.Signals, () => void>();
-    const onceSpy = vi.spyOn(process, "once").mockImplementation(((
-      signal: NodeJS.Signals,
-      handler: () => void,
-    ) => {
-      signalHandlers.set(signal, handler);
-      return process;
-    }) as typeof process.once);
-    return { signalHandlers, onceSpy };
-  }
-
   beforeAll(async () => {
     ({ serveAcpGateway } = await import("./server.js"));
   });
@@ -137,14 +117,25 @@ describe("serveAcpGateway startup", () => {
   });
 
   it("waits for gateway hello before creating AgentSideConnection", async () => {
-    const { signalHandlers, onceSpy } = captureProcessSignalHandlers();
+    const signalHandlers = new Map<NodeJS.Signals, () => void>();
+    const onceSpy = vi.spyOn(process, "once").mockImplementation(((
+      signal: NodeJS.Signals,
+      handler: () => void,
+    ) => {
+      signalHandlers.set(signal, handler);
+      return process;
+    }) as typeof process.once);
 
     try {
       const servePromise = serveAcpGateway({});
       await Promise.resolve();
 
       expect(mockState.agentSideConnectionCtor).not.toHaveBeenCalled();
-      const gateway = getMockGateway();
+      const gateway = mockState.gateways[0];
+      if (!gateway) {
+        throw new Error("Expected mocked gateway instance");
+      }
+
       gateway.emitHello();
       await vi.waitFor(() => {
         expect(mockState.agentSideConnectionCtor).toHaveBeenCalledTimes(1);
@@ -168,7 +159,11 @@ describe("serveAcpGateway startup", () => {
       const servePromise = serveAcpGateway({});
       await Promise.resolve();
 
-      const gateway = getMockGateway();
+      const gateway = mockState.gateways[0];
+      if (!gateway) {
+        throw new Error("Expected mocked gateway instance");
+      }
+
       gateway.emitConnectError("connect failed");
       await expect(servePromise).rejects.toThrow("connect failed");
       expect(mockState.agentSideConnectionCtor).not.toHaveBeenCalled();
@@ -182,7 +177,14 @@ describe("serveAcpGateway startup", () => {
       token: undefined,
       password: "resolved-secret-password",
     });
-    const { signalHandlers, onceSpy } = captureProcessSignalHandlers();
+    const signalHandlers = new Map<NodeJS.Signals, () => void>();
+    const onceSpy = vi.spyOn(process, "once").mockImplementation(((
+      signal: NodeJS.Signals,
+      handler: () => void,
+    ) => {
+      signalHandlers.set(signal, handler);
+      return process;
+    }) as typeof process.once);
 
     try {
       const servePromise = serveAcpGateway({});
@@ -198,7 +200,10 @@ describe("serveAcpGateway startup", () => {
         password: "resolved-secret-password",
       });
 
-      const gateway = getMockGateway();
+      const gateway = mockState.gateways[0];
+      if (!gateway) {
+        throw new Error("Expected mocked gateway instance");
+      }
       gateway.emitHello();
       await vi.waitFor(() => {
         expect(mockState.agentSideConnectionCtor).toHaveBeenCalledTimes(1);

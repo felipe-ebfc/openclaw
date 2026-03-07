@@ -117,6 +117,58 @@ describe("buildBootstrapContextFiles", () => {
     expect(result[0]?.content.startsWith("[MISSING]")).toBe(true);
   });
 
+  it("warns when files are zero-injected due to budget exhaustion", () => {
+    const files = [
+      makeFile({ name: "AGENTS.md", content: "a".repeat(200) }),
+      makeFile({ name: "MEMORY.md", path: "/tmp/MEMORY.md", content: "b".repeat(200) }),
+      makeFile({ name: "USER.md", path: "/tmp/USER.md", content: "c".repeat(200) }),
+      makeFile({ name: "HEARTBEAT.md", path: "/tmp/HEARTBEAT.md", content: "d".repeat(200) }),
+    ];
+    const warnings: string[] = [];
+    // Budget of 250 with 200/file: first file uses 200, second uses 50 (truncated),
+    // remaining files hit < 64 budget threshold and get zero-injected.
+    buildBootstrapContextFiles(files, {
+      maxChars: 200,
+      totalMaxChars: 250,
+      warn: (msg) => warnings.push(msg),
+    });
+    const zeroWarn = warnings.find((w) => w.includes("zero-injection"));
+    expect(zeroWarn).toBeDefined();
+    expect(zeroWarn).toContain("0 chars");
+    expect(zeroWarn).toContain("budget");
+  });
+
+  it("warns when files are skipped because remaining budget is zero", () => {
+    const files = [
+      makeFile({ name: "AGENTS.md", content: "a".repeat(100) }),
+      makeFile({ name: "USER.md", path: "/tmp/USER.md", content: "b".repeat(100) }),
+    ];
+    const warnings: string[] = [];
+    // Budget of 100 with 100/file: first file uses all 100, second file hits <= 0.
+    buildBootstrapContextFiles(files, {
+      maxChars: 100,
+      totalMaxChars: 100,
+      warn: (msg) => warnings.push(msg),
+    });
+    const zeroWarn = warnings.find((w) => w.includes("zero-injection"));
+    expect(zeroWarn).toBeDefined();
+    expect(zeroWarn).toContain("USER.md");
+  });
+
+  it("does not warn zero-injection when all files fit within budget", () => {
+    const files = [
+      makeFile({ name: "AGENTS.md", content: "small" }),
+      makeFile({ name: "MEMORY.md", path: "/tmp/MEMORY.md", content: "tiny" }),
+    ];
+    const warnings: string[] = [];
+    buildBootstrapContextFiles(files, {
+      totalMaxChars: 100_000,
+      warn: (msg) => warnings.push(msg),
+    });
+    const zeroWarn = warnings.find((w) => w.includes("zero-injection"));
+    expect(zeroWarn).toBeUndefined();
+  });
+
   it("skips files with missing or invalid paths and emits warnings", () => {
     const malformedMissingPath = {
       name: "SKILL-SECURITY.md",

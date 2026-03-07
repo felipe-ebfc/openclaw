@@ -252,7 +252,7 @@ export function resolveGatewayAuth(params: {
     env,
     includeLegacyEnv: false,
     tokenPrecedence: "config-first",
-    passwordPrecedence: "config-first", // pragma: allowlist secret
+    passwordPrecedence: "config-first",
   });
   const token = resolvedCredentials.token;
   const password = resolvedCredentials.password;

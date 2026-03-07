@@ -2,7 +2,6 @@ import {
   applyAccountNameToChannelSection,
   buildChannelConfigSchema,
   buildProbeChannelStatusSummary,
-  collectStatusIssuesFromLastError,
   DEFAULT_ACCOUNT_ID,
   deleteAccountFromConfigSection,
   formatPairingApproveHint,
@@ -381,7 +380,21 @@ export const matrixPlugin: ChannelPlugin<ResolvedMatrixAccount> = {
       lastStopAt: null,
       lastError: null,
     },
-    collectStatusIssues: (accounts) => collectStatusIssuesFromLastError("matrix", accounts),
+    collectStatusIssues: (accounts) =>
+      accounts.flatMap((account) => {
+        const lastError = typeof account.lastError === "string" ? account.lastError.trim() : "";
+        if (!lastError) {
+          return [];
+        }
+        return [
+          {
+            channel: "matrix",
+            accountId: account.accountId,
+            kind: "runtime",
+            message: `Channel error: ${lastError}`,
+          },
+        ];
+      }),
     buildChannelSummary: ({ snapshot }) =>
       buildProbeChannelStatusSummary(snapshot, { baseUrl: snapshot.baseUrl ?? null }),
     probeAccount: async ({ account, timeoutMs, cfg }) => {

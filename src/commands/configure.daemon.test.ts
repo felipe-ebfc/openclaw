@@ -5,7 +5,6 @@ const loadConfig = vi.hoisted(() => vi.fn());
 const resolveGatewayInstallToken = vi.hoisted(() => vi.fn());
 const buildGatewayInstallPlan = vi.hoisted(() => vi.fn());
 const note = vi.hoisted(() => vi.fn());
-const serviceIsLoaded = vi.hoisted(() => vi.fn(async () => false));
 const serviceInstall = vi.hoisted(() => vi.fn(async () => {}));
 const ensureSystemdUserLingerInteractive = vi.hoisted(() => vi.fn(async () => {}));
 
@@ -42,7 +41,7 @@ vi.mock("./daemon-runtime.js", () => ({
 
 vi.mock("../daemon/service.js", () => ({
   resolveGatewayService: vi.fn(() => ({
-    isLoaded: serviceIsLoaded,
+    isLoaded: vi.fn(async () => false),
     install: serviceInstall,
   })),
 }));
@@ -60,8 +59,6 @@ const { maybeInstallDaemon } = await import("./configure.daemon.js");
 describe("maybeInstallDaemon", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    serviceIsLoaded.mockResolvedValue(false);
-    serviceInstall.mockResolvedValue(undefined);
     loadConfig.mockReturnValue({});
     resolveGatewayInstallToken.mockResolvedValue({
       token: undefined,
@@ -109,20 +106,5 @@ describe("maybeInstallDaemon", () => {
     );
     expect(buildGatewayInstallPlan).not.toHaveBeenCalled();
     expect(serviceInstall).not.toHaveBeenCalled();
-  });
-
-  it("continues daemon install flow when service status probe throws", async () => {
-    serviceIsLoaded.mockRejectedValueOnce(
-      new Error("systemctl is-enabled unavailable: Failed to connect to bus"),
-    );
-
-    await expect(
-      maybeInstallDaemon({
-        runtime: { log: vi.fn(), error: vi.fn(), exit: vi.fn() },
-        port: 18789,
-      }),
-    ).resolves.toBeUndefined();
-
-    expect(serviceInstall).toHaveBeenCalledTimes(1);
   });
 });

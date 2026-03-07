@@ -56,18 +56,12 @@ type SaveCronStoreOptions = {
   skipBackup?: boolean;
 };
 
-async function setSecureFileMode(filePath: string): Promise<void> {
-  await fs.promises.chmod(filePath, 0o600).catch(() => undefined);
-}
-
 export async function saveCronStore(
   storePath: string,
   store: CronStoreFile,
   opts?: SaveCronStoreOptions,
 ) {
-  const storeDir = path.dirname(storePath);
-  await fs.promises.mkdir(storeDir, { recursive: true, mode: 0o700 });
-  await fs.promises.chmod(storeDir, 0o700).catch(() => undefined);
+  await fs.promises.mkdir(path.dirname(storePath), { recursive: true });
   const json = JSON.stringify(store, null, 2);
   const cached = serializedStoreCache.get(storePath);
   if (cached === json) {
@@ -89,19 +83,15 @@ export async function saveCronStore(
     return;
   }
   const tmp = `${storePath}.${process.pid}.${randomBytes(8).toString("hex")}.tmp`;
-  await fs.promises.writeFile(tmp, json, { encoding: "utf-8", mode: 0o600 });
-  await setSecureFileMode(tmp);
+  await fs.promises.writeFile(tmp, json, "utf-8");
   if (previous !== null && !opts?.skipBackup) {
     try {
-      const backupPath = `${storePath}.bak`;
-      await fs.promises.copyFile(storePath, backupPath);
-      await setSecureFileMode(backupPath);
+      await fs.promises.copyFile(storePath, `${storePath}.bak`);
     } catch {
       // best-effort
     }
   }
   await renameWithRetry(tmp, storePath);
-  await setSecureFileMode(storePath);
   serializedStoreCache.set(storePath, json);
 }
 

@@ -2,7 +2,6 @@ import { formatCliCommand } from "../../../cli/command-format.js";
 import type { OpenClawConfig } from "../../../config/config.js";
 import { hasConfiguredSecretInput } from "../../../config/types.secrets.js";
 import { DEFAULT_ACCOUNT_ID } from "../../../routing/session-key.js";
-import { inspectTelegramAccount } from "../../../telegram/account-inspect.js";
 import {
   listTelegramAccountIds,
   resolveDefaultTelegramAccountId,
@@ -154,8 +153,12 @@ export const telegramOnboardingAdapter: ChannelOnboardingAdapter = {
   channel,
   getStatus: async ({ cfg }) => {
     const configured = listTelegramAccountIds(cfg).some((accountId) => {
-      const account = inspectTelegramAccount({ cfg, accountId });
-      return account.configured;
+      const account = resolveTelegramAccount({ cfg, accountId });
+      return (
+        Boolean(account.token) ||
+        Boolean(account.config.tokenFile?.trim()) ||
+        hasConfiguredSecretInput(account.config.botToken)
+      );
     });
     return {
       channel,

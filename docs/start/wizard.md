@@ -35,10 +35,9 @@ openclaw agents add <name>
 </Note>
 
 <Tip>
-The onboarding wizard includes a web search step where you can pick a provider
-(Perplexity, Brave, Gemini, Grok, or Kimi) and paste your API key so the agent
-can use `web_search`. You can also configure this later with
-`openclaw configure --section web`. Docs: [Web tools](/tools/web).
+Recommended: set up a Brave Search API key so the agent can use `web_search`
+(`web_fetch` works without a key). Easiest path: `openclaw configure --section web`
+which stores `tools.web.search.apiKey`. Docs: [Web tools](/tools/web).
 </Tip>
 
 ## QuickStart vs Advanced

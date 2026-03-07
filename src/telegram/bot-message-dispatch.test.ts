@@ -30,14 +30,10 @@ vi.mock("./send.js", () => ({
   editMessageTelegram,
 }));
 
-vi.mock("../config/sessions.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../config/sessions.js")>();
-  return {
-    ...actual,
-    loadSessionStore,
-    resolveStorePath,
-  };
-});
+vi.mock("../config/sessions.js", async () => ({
+  loadSessionStore,
+  resolveStorePath,
+}));
 
 vi.mock("./sticker-cache.js", () => ({
   cacheSticker: vi.fn(),

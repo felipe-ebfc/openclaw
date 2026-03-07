@@ -20,12 +20,7 @@ export async function maybeInstallDaemon(params: {
   daemonRuntime?: GatewayDaemonRuntime;
 }) {
   const service = resolveGatewayService();
-  let loaded = false;
-  try {
-    loaded = await service.isLoaded({ env: process.env });
-  } catch {
-    loaded = false;
-  }
+  const loaded = await service.isLoaded({ env: process.env });
   let shouldCheckLinger = false;
   let shouldInstall = true;
   let daemonRuntime = params.daemonRuntime ?? DEFAULT_GATEWAY_DAEMON_RUNTIME;

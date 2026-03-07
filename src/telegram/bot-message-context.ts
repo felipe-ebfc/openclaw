@@ -1,5 +1,8 @@
 import type { Bot } from "grammy";
-import { ensureConfiguredAcpRouteReady } from "../acp/persistent-bindings.route.js";
+import {
+  ensureConfiguredAcpRouteReady,
+  resolveConfiguredAcpRoute,
+} from "../acp/persistent-bindings.route.js";
 import { resolveAckReaction } from "../agents/identity.js";
 import {
   findModelInCatalog,
@@ -39,7 +42,19 @@ import type {
 } from "../config/types.js";
 import { logVerbose, shouldLogVerbose } from "../globals.js";
 import { recordChannelActivity } from "../infra/channel-activity.js";
-import { DEFAULT_ACCOUNT_ID, resolveThreadSessionKeys } from "../routing/session-key.js";
+import { getSessionBindingService } from "../infra/outbound/session-binding-service.js";
+import {
+  buildAgentSessionKey,
+  pickFirstExistingAgentId,
+  resolveAgentRoute,
+  type ResolvedAgentRoute,
+} from "../routing/resolve-route.js";
+import {
+  DEFAULT_ACCOUNT_ID,
+  buildAgentMainSessionKey,
+  resolveAgentIdFromSessionKey,
+  resolveThreadSessionKeys,
+} from "../routing/session-key.js";
 import { resolvePinnedMainDmOwnerFromAllowlist } from "../security/dm-policy-shared.js";
 import { withTelegramApiErrorLogging } from "./api-logging.js";
 import {
@@ -52,8 +67,10 @@ import {
   buildGroupLabel,
   buildSenderLabel,
   buildSenderName,
+  resolveTelegramDirectPeerId,
   buildTelegramGroupFrom,
   buildTelegramGroupPeerId,
+  buildTelegramParentPeer,
   buildTypingThreadParams,
   resolveTelegramMediaPlaceholder,
   expandTextLinks,
@@ -64,7 +81,6 @@ import {
   resolveTelegramThreadSpec,
 } from "./bot/helpers.js";
 import type { StickerMetadata, TelegramContext } from "./bot/types.js";
-import { resolveTelegramConversationRoute } from "./conversation-route.js";
 import { enforceTelegramDmAccess } from "./dm-access.js";
 import { isTelegramForumServiceMessage } from "./forum-service-message.js";
 import { evaluateTelegramGroupBaseAccess } from "./group-access.js";
@@ -193,21 +209,89 @@ export const buildTelegramMessageContext = async ({
     !isGroup && groupConfig && "dmPolicy" in groupConfig
       ? (groupConfig.dmPolicy ?? dmPolicy)
       : dmPolicy;
+  const peerId = isGroup
+    ? buildTelegramGroupPeerId(chatId, resolvedThreadId)
+    : resolveTelegramDirectPeerId({ chatId, senderId });
+  const parentPeer = buildTelegramParentPeer({ isGroup, resolvedThreadId, chatId });
   // Fresh config for bindings lookup; other routing inputs are payload-derived.
   const freshCfg = loadConfig();
-  let { route, configuredBinding, configuredBindingSessionKey } = resolveTelegramConversationRoute({
+  let route: ResolvedAgentRoute = resolveAgentRoute({
     cfg: freshCfg,
+    channel: "telegram",
     accountId: account.accountId,
-    chatId,
-    isGroup,
-    resolvedThreadId,
-    replyThreadId,
-    senderId,
-    topicAgentId: topicConfig?.agentId,
+    peer: {
+      kind: isGroup ? "group" : "direct",
+      id: peerId,
+    },
+    parentPeer,
   });
-  const requiresExplicitAccountBinding = (
-    candidate: ReturnType<typeof resolveTelegramConversationRoute>["route"],
-  ): boolean => candidate.accountId !== DEFAULT_ACCOUNT_ID && candidate.matchedBy === "default";
+  // Per-topic agentId override: re-derive session key under the topic's agent.
+  const rawTopicAgentId = topicConfig?.agentId?.trim();
+  if (rawTopicAgentId) {
+    // Validate agentId against configured agents; falls back to default if not found.
+    const topicAgentId = pickFirstExistingAgentId(freshCfg, rawTopicAgentId);
+    const overrideSessionKey = buildAgentSessionKey({
+      agentId: topicAgentId,
+      channel: "telegram",
+      accountId: account.accountId,
+      peer: { kind: isGroup ? "group" : "direct", id: peerId },
+      dmScope: freshCfg.session?.dmScope,
+      identityLinks: freshCfg.session?.identityLinks,
+    }).toLowerCase();
+    const overrideMainSessionKey = buildAgentMainSessionKey({
+      agentId: topicAgentId,
+    }).toLowerCase();
+    route = {
+      ...route,
+      agentId: topicAgentId,
+      sessionKey: overrideSessionKey,
+      mainSessionKey: overrideMainSessionKey,
+    };
+    logVerbose(
+      `telegram: per-topic agent override: topic=${resolvedThreadId ?? dmThreadId} agent=${topicAgentId} sessionKey=${overrideSessionKey}`,
+    );
+  }
+  const configuredRoute = resolveConfiguredAcpRoute({
+    cfg: freshCfg,
+    route,
+    channel: "telegram",
+    accountId: account.accountId,
+    conversationId: peerId,
+    parentConversationId: isGroup ? String(chatId) : undefined,
+  });
+  let configuredBinding = configuredRoute.configuredBinding;
+  let configuredBindingSessionKey = configuredRoute.boundSessionKey ?? "";
+  route = configuredRoute.route;
+  const threadBindingConversationId =
+    replyThreadId != null
+      ? `${chatId}:topic:${replyThreadId}`
+      : !isGroup
+        ? String(chatId)
+        : undefined;
+  if (threadBindingConversationId) {
+    const threadBinding = getSessionBindingService().resolveByConversation({
+      channel: "telegram",
+      accountId: account.accountId,
+      conversationId: threadBindingConversationId,
+    });
+    const boundSessionKey = threadBinding?.targetSessionKey?.trim();
+    if (threadBinding && boundSessionKey) {
+      route = {
+        ...route,
+        sessionKey: boundSessionKey,
+        agentId: resolveAgentIdFromSessionKey(boundSessionKey),
+        matchedBy: "binding.channel",
+      };
+      configuredBinding = null;
+      configuredBindingSessionKey = "";
+      getSessionBindingService().touch(threadBinding.bindingId);
+      logVerbose(
+        `telegram: routed via bound conversation ${threadBindingConversationId} -> ${boundSessionKey}`,
+      );
+    }
+  }
+  const requiresExplicitAccountBinding = (candidate: ResolvedAgentRoute): boolean =>
+    candidate.accountId !== DEFAULT_ACCOUNT_ID && candidate.matchedBy === "default";
   // Fail closed for named Telegram accounts when route resolution falls back to
   // default-agent routing. This prevents cross-account DM/session contamination.
   if (requiresExplicitAccountBinding(route)) {

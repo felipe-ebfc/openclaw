@@ -21,6 +21,7 @@ describe("context-window-guard", () => {
     expect(guard.tokens).toBe(8000);
     expect(guard.shouldWarn).toBe(true);
     expect(guard.shouldBlock).toBe(true);
+    expect(guard.shouldWarnDefaultSource).toBe(false);
   });
 
   it("warns below 32k but does not block at 16k+", () => {
@@ -129,6 +130,54 @@ describe("context-window-guard", () => {
     expect(info.source).toBe("default");
     expect(guard.shouldWarn).toBe(false);
     expect(guard.shouldBlock).toBe(false);
+    expect(guard.shouldWarnDefaultSource).toBe(true);
+  });
+
+  it("does not set shouldWarnDefaultSource when model metadata is present", () => {
+    const info = resolveContextWindowInfo({
+      cfg: undefined,
+      provider: "openai",
+      modelId: "gpt-4",
+      modelContextWindow: 128_000,
+      defaultTokens: 200_000,
+    });
+    const guard = evaluateContextWindowGuard({ info });
+    expect(guard.source).toBe("model");
+    expect(guard.shouldWarnDefaultSource).toBe(false);
+  });
+
+  it("does not set shouldWarnDefaultSource when modelsConfig is present", () => {
+    const cfg = {
+      models: {
+        providers: {
+          custom: {
+            baseUrl: "http://localhost",
+            apiKey: "x",
+            models: [
+              {
+                id: "local",
+                name: "local",
+                reasoning: false,
+                input: ["text"],
+                cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+                contextWindow: 64_000,
+                maxTokens: 4096,
+              },
+            ],
+          },
+        },
+      },
+    } satisfies OpenClawConfig;
+    const info = resolveContextWindowInfo({
+      cfg,
+      provider: "custom",
+      modelId: "local",
+      modelContextWindow: undefined,
+      defaultTokens: 200_000,
+    });
+    const guard = evaluateContextWindowGuard({ info });
+    expect(guard.source).toBe("modelsConfig");
+    expect(guard.shouldWarnDefaultSource).toBe(false);
   });
 
   it("allows overriding thresholds", () => {

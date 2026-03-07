@@ -60,7 +60,6 @@ export {
 export { formatDocsLink } from "../terminal/links.js";
 export type { WizardPrompter } from "../wizard/prompts.js";
 export { createScopedPairingAccess } from "./pairing-access.js";
-export { dispatchInboundReplyWithBase } from "./inbound-reply-dispatch.js";
 export type { OutboundReplyPayload } from "./reply-payload.js";
 export {
   createNormalizedOutboundDeliverer,

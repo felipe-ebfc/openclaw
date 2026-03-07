@@ -90,7 +90,7 @@ function resolveSyntheticLocalProviderAuth(params: {
   }
 
   return {
-    apiKey: "ollama-local", // pragma: allowlist secret
+    apiKey: "ollama-local",
     source: "models.providers.ollama (synthetic local key)",
     mode: "api-key",
   };
@@ -250,7 +250,7 @@ export async function resolveApiKeyForProvider(params: {
     const hasCodex = listProfilesForProvider(store, "openai-codex").length > 0;
     if (hasCodex) {
       throw new Error(
-        'No API key found for provider "openai". You are authenticated with OpenAI Codex OAuth. Use openai-codex/gpt-5.4 (OAuth) or set OPENAI_API_KEY to use openai/gpt-5.4.',
+        'No API key found for provider "openai". You are authenticated with OpenAI Codex OAuth. Use openai-codex/gpt-5.3-codex (OAuth) or set OPENAI_API_KEY to use openai/gpt-5.1-codex.',
       );
     }
   }

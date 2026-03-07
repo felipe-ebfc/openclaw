@@ -77,11 +77,7 @@ export function redactSensitiveStatusSummary(summary: StatusSummary): StatusSumm
 }
 
 export async function getStatusSummary(
-  options: {
-    includeSensitive?: boolean;
-    config?: OpenClawConfig;
-    sourceConfig?: OpenClawConfig;
-  } = {},
+  options: { includeSensitive?: boolean; config?: OpenClawConfig } = {},
 ): Promise<StatusSummary> {
   const { includeSensitive = true } = options;
   const cfg = options.config ?? loadConfig();
@@ -99,7 +95,6 @@ export async function getStatusSummary(
   const channelSummary = await buildChannelSummary(cfg, {
     colorize: true,
     includeAllowFrom: true,
-    sourceConfig: options.sourceConfig,
   });
   const mainSessionKey = resolveMainSessionKey(cfg);
   const queuedSystemEvents = peekSystemEvents(mainSessionKey);

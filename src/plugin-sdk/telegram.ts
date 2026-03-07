@@ -7,7 +7,6 @@ export type { ChannelPlugin } from "../channels/plugins/types.plugin.js";
 export type { OpenClawConfig } from "../config/config.js";
 export type { PluginRuntime } from "../plugins/runtime/types.js";
 export type { OpenClawPluginApi } from "../plugins/types.js";
-export type { InspectedTelegramAccount } from "../telegram/account-inspect.js";
 export type { ResolvedTelegramAccount } from "../telegram/accounts.js";
 export type { TelegramProbe } from "../telegram/probe.js";
 
@@ -22,7 +21,6 @@ export {
 export { buildChannelConfigSchema } from "../channels/plugins/config-schema.js";
 export {
   deleteAccountFromConfigSection,
-  clearAccountEntryFields,
   setAccountEnabledInConfigSection,
 } from "../channels/plugins/config-helpers.js";
 export { formatPairingApproveHint } from "../channels/plugins/helpers.js";
@@ -35,11 +33,6 @@ export {
   resolveDefaultTelegramAccountId,
   resolveTelegramAccount,
 } from "../telegram/accounts.js";
-export { inspectTelegramAccount } from "../telegram/account-inspect.js";
-export {
-  projectCredentialSnapshotFields,
-  resolveConfiguredFromCredentialStatuses,
-} from "../channels/account-snapshot-fields.js";
 export {
   listTelegramDirectoryGroupsFromConfig,
   listTelegramDirectoryPeersFromConfig,

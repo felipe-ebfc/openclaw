@@ -293,6 +293,27 @@ describe("dispatchReplyFromConfig", () => {
     );
   });
 
+  it("does NOT route when webchat surface receives imessage-originated messages (regression guard)", async () => {
+    setNoAbort();
+    mocks.routeReply.mockClear();
+    const cfg = emptyConfig;
+    const dispatcher = createDispatcher();
+    const ctx = buildTestCtx({
+      Provider: "webchat",
+      Surface: "imessage",
+      OriginatingChannel: "imessage",
+      OriginatingTo: "+19168714556",
+    });
+
+    const replyResolver = async () => ({ text: "hi" }) satisfies ReplyPayload;
+    await dispatchReplyFromConfig({ ctx, cfg, dispatcher, replyResolver });
+
+    // Guard: shouldRouteToOriginating is false when Surface (origin metadata) === originatingChannel
+    // This prevents webchat-initiated sessions from leaking replies back to iMessage
+    expect(mocks.routeReply).not.toHaveBeenCalled();
+    expect(dispatcher.sendFinalReply).toHaveBeenCalledTimes(1);
+  });
+
   it("forces suppressTyping when routing to a different originating channel", async () => {
     setNoAbort();
     const cfg = emptyConfig;
@@ -397,58 +418,6 @@ describe("dispatchReplyFromConfig", () => {
 
     expect(mocks.routeReply).not.toHaveBeenCalled();
     expect(dispatcher.sendFinalReply).toHaveBeenCalledTimes(1);
-  });
-
-  it("does not route external origin replies when current surface is internal webchat without explicit delivery", async () => {
-    setNoAbort();
-    mocks.routeReply.mockClear();
-    const cfg = emptyConfig;
-    const dispatcher = createDispatcher();
-    const ctx = buildTestCtx({
-      Provider: "webchat",
-      Surface: "webchat",
-      OriginatingChannel: "imessage",
-      OriginatingTo: "imessage:+15550001111",
-    });
-
-    const replyResolver = async (
-      _ctx: MsgContext,
-      _opts?: GetReplyOptions,
-      _cfg?: OpenClawConfig,
-    ) => ({ text: "hi" }) satisfies ReplyPayload;
-    await dispatchReplyFromConfig({ ctx, cfg, dispatcher, replyResolver });
-
-    expect(mocks.routeReply).not.toHaveBeenCalled();
-    expect(dispatcher.sendFinalReply).toHaveBeenCalledTimes(1);
-  });
-
-  it("routes external origin replies for internal webchat turns when explicit delivery is set", async () => {
-    setNoAbort();
-    mocks.routeReply.mockClear();
-    const cfg = emptyConfig;
-    const dispatcher = createDispatcher();
-    const ctx = buildTestCtx({
-      Provider: "webchat",
-      Surface: "webchat",
-      OriginatingChannel: "imessage",
-      OriginatingTo: "imessage:+15550001111",
-      ExplicitDeliverRoute: true,
-    });
-
-    const replyResolver = async (
-      _ctx: MsgContext,
-      _opts?: GetReplyOptions,
-      _cfg?: OpenClawConfig,
-    ) => ({ text: "hi" }) satisfies ReplyPayload;
-    await dispatchReplyFromConfig({ ctx, cfg, dispatcher, replyResolver });
-
-    expect(dispatcher.sendFinalReply).not.toHaveBeenCalled();
-    expect(mocks.routeReply).toHaveBeenCalledWith(
-      expect.objectContaining({
-        channel: "imessage",
-        to: "imessage:+15550001111",
-      }),
-    );
   });
 
   it("routes media-only tool results when summaries are suppressed", async () => {

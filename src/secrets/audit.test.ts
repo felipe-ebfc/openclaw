@@ -53,7 +53,7 @@ async function createAuditFixture(): Promise<AuditFixture> {
     env: {
       OPENCLAW_STATE_DIR: stateDir,
       OPENCLAW_CONFIG_PATH: configPath,
-      OPENAI_API_KEY: "env-openai-key", // pragma: allowlist secret
+      OPENAI_API_KEY: "env-openai-key",
       PATH: resolveRuntimePathEnv(),
     },
   };
@@ -146,7 +146,7 @@ describe("secrets audit", () => {
         "#!/bin/sh",
         `printf 'x\\n' >> ${JSON.stringify(execLogPath)}`,
         "cat >/dev/null",
-        'printf \'{"protocolVersion":1,"values":{"providers/openai/apiKey":"value:providers/openai/apiKey","providers/moonshot/apiKey":"value:providers/moonshot/apiKey"}}\'', // pragma: allowlist secret
+        'printf \'{"protocolVersion":1,"values":{"providers/openai/apiKey":"value:providers/openai/apiKey","providers/moonshot/apiKey":"value:providers/moonshot/apiKey"}}\'',
       ].join("\n"),
       { encoding: "utf8", mode: 0o700 },
     );
