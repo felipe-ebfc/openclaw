@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { resolveContextTokensForModel } from "../agents/context.js";
 import { DEFAULT_CONTEXT_TOKENS, DEFAULT_MODEL, DEFAULT_PROVIDER } from "../agents/defaults.js";
+import { resolveAgentIdentity } from "../agents/identity.js";
 import { resolveModelAuthMode } from "../agents/model-auth.js";
 import {
   buildModelAliasIndex,
@@ -163,6 +164,33 @@ function resolveRuntimeLabel(
   return `${runtime}/${sandboxMode}`;
 }
 
+/** Format a YYYY.M.D version string as "Mon YYYY" (e.g. "2026.3.9" → "Mar 2026"). */
+const MONTH_NAMES = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+function formatVersionMonthYear(version: string): string {
+  const [year, month] = version.split(".");
+  if (!year || !month) {
+    return version;
+  }
+  const monthNum = parseInt(month, 10);
+  if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
+    return version;
+  }
+  return `${MONTH_NAMES[monthNum - 1]} ${year}`;
+}
+
 const formatTokens = (total: number | null | undefined, contextTokens: number | null) => {
   const ctx = contextTokens ?? null;
   if (total == null) {
@@ -184,7 +212,7 @@ const formatQueueDetails = (queue?: QueueStatus) => {
   if (!queue) {
     return "";
   }
-  const depth = typeof queue.depth === "number" ? `depth ${queue.depth}` : null;
+  const depth = typeof queue.depth === "number" && queue.depth > 0 ? `depth ${queue.depth}` : null;
   if (!queue.showDetails) {
     return depth ? ` (${depth})` : "";
   }
@@ -608,7 +636,17 @@ export function buildStatusMessage(args: StatusArgs): string {
       : undefined;
   const costLabel = showCost && hasUsage ? formatUsd(cost) : undefined;
 
-  const selectedAuthLabel = selectedAuthLabelValue ? ` · 🔑 ${selectedAuthLabelValue}` : "";
+  // Resolve configured identity (name/emoji) for branding overrides.
+  const resolvedAgentId =
+    args.agentId ?? (args.sessionKey ? resolveAgentIdFromSessionKey(args.sessionKey) : undefined);
+  const identityConfig =
+    args.config && resolvedAgentId ? resolveAgentIdentity(args.config, resolvedAgentId) : undefined;
+  const identityName = identityConfig?.name?.trim() || undefined;
+  const identityEmoji = identityConfig?.emoji?.trim() || undefined;
+
+  // Hide API key label when a branded identity is configured.
+  const selectedAuthLabel =
+    selectedAuthLabelValue && !identityName ? ` · 🔑 ${selectedAuthLabelValue}` : "";
   const channelModelNote = (() => {
     if (!args.config || !entry) {
       return undefined;
@@ -656,7 +694,9 @@ export function buildStatusMessage(args: StatusArgs): string {
       } (${fallbackState.reason ?? "selected model unavailable"})`
     : null;
   const commit = resolveCommitHash();
-  const versionLine = `🦞 OpenClaw ${VERSION}${commit ? ` (${commit})` : ""}`;
+  const versionLine = identityName
+    ? `${identityEmoji ? `${identityEmoji} ` : ""}${identityName} ${formatVersionMonthYear(VERSION)}`
+    : `🦞 OpenClaw ${VERSION}${commit ? ` (${commit})` : ""}`;
   const usagePair = formatUsagePair(inputTokens, outputTokens);
   const cacheLine = formatCacheLine(inputTokens, cacheRead, cacheWrite);
   const costLine = costLabel ? `💵 Cost: ${costLabel}` : null;
