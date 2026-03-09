@@ -372,6 +372,12 @@ export async function runEmbeddedPiAgent(
           `low context window: ${provider}/${modelId} ctx=${ctxGuard.tokens} (warn<${CONTEXT_WINDOW_WARN_BELOW_TOKENS}) source=${ctxGuard.source}`,
         );
       }
+      if (ctxGuard.shouldWarnDefaultSource) {
+        log.warn(
+          `unknown model context window: ${provider}/${modelId} has no context window metadata; using fallback default (${ctxGuard.tokens} tokens). ` +
+            `Set models.providers.${provider}.models[].contextWindow in config to silence this warning.`,
+        );
+      }
       if (ctxGuard.shouldBlock) {
         log.error(
           `blocked model (context window too small): ${provider}/${modelId} ctx=${ctxGuard.tokens} (min=${CONTEXT_WINDOW_HARD_MIN_TOKENS}) source=${ctxGuard.source}`,

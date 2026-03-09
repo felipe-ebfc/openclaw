@@ -293,6 +293,27 @@ describe("dispatchReplyFromConfig", () => {
     );
   });
 
+  it("does NOT route when webchat surface receives imessage-originated messages (regression guard)", async () => {
+    setNoAbort();
+    mocks.routeReply.mockClear();
+    const cfg = emptyConfig;
+    const dispatcher = createDispatcher();
+    const ctx = buildTestCtx({
+      Provider: "webchat",
+      Surface: "imessage",
+      OriginatingChannel: "imessage",
+      OriginatingTo: "+19168714556",
+    });
+
+    const replyResolver = async () => ({ text: "hi" }) satisfies ReplyPayload;
+    await dispatchReplyFromConfig({ ctx, cfg, dispatcher, replyResolver });
+
+    // Guard: shouldRouteToOriginating is false when Surface (origin metadata) === originatingChannel
+    // This prevents webchat-initiated sessions from leaking replies back to iMessage
+    expect(mocks.routeReply).not.toHaveBeenCalled();
+    expect(dispatcher.sendFinalReply).toHaveBeenCalledTimes(1);
+  });
+
   it("forces suppressTyping when routing to a different originating channel", async () => {
     setNoAbort();
     const cfg = emptyConfig;

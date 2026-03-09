@@ -206,9 +206,11 @@ export function buildBootstrapContextFiles(
   );
   let remainingTotalChars = totalMaxChars;
   const result: EmbeddedContextFile[] = [];
+  const skippedFiles: string[] = [];
   for (const file of files) {
     if (remainingTotalChars <= 0) {
-      break;
+      skippedFiles.push(file.name);
+      continue;
     }
     const pathValue = typeof file.path === "string" ? file.path.trim() : "";
     if (!pathValue) {
@@ -234,12 +236,19 @@ export function buildBootstrapContextFiles(
       opts?.warn?.(
         `remaining bootstrap budget is ${remainingTotalChars} chars (<${MIN_BOOTSTRAP_FILE_BUDGET_CHARS}); skipping additional bootstrap files`,
       );
+      // Collect remaining non-missing files as skipped for the zero-injection warning.
+      for (const remaining of files.slice(files.indexOf(file))) {
+        if (!remaining.missing && (remaining.content ?? "").trim().length > 0) {
+          skippedFiles.push(remaining.name);
+        }
+      }
       break;
     }
     const fileMaxChars = Math.max(1, Math.min(maxChars, remainingTotalChars));
     const trimmed = trimBootstrapContent(file.content ?? "", file.name, fileMaxChars);
     const contentWithinBudget = clampToBudget(trimmed.content, remainingTotalChars);
     if (!contentWithinBudget) {
+      skippedFiles.push(file.name);
       continue;
     }
     if (trimmed.truncated || contentWithinBudget.length < trimmed.content.length) {
@@ -252,6 +261,12 @@ export function buildBootstrapContextFiles(
       path: pathValue,
       content: contentWithinBudget,
     });
+  }
+  if (skippedFiles.length > 0) {
+    opts?.warn?.(
+      `bootstrap zero-injection: ${skippedFiles.join(", ")} received 0 chars ` +
+        `(total budget ${totalMaxChars} exhausted); agent is missing this context`,
+    );
   }
   return result;
 }

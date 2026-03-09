@@ -47,6 +47,7 @@ import {
 import { appendUsageLine, formatResponseUsageLine } from "./agent-runner-utils.js";
 import { createAudioAsVoiceBuffer, createBlockReplyPipeline } from "./block-reply-pipeline.js";
 import { resolveEffectiveBlockStreamingConfig } from "./block-streaming.js";
+import { broadcastFallbackNotice } from "./fallback-cross-channel.js";
 import { createFollowupRunner } from "./followup-runner.js";
 import { resolveOriginMessageProvider, resolveOriginMessageTo } from "./origin-routing.js";
 import { readPostCompactionContext } from "./post-compaction-context.js";
@@ -594,6 +595,9 @@ export async function runReplyAgent(params: {
     // If verbose is enabled, prepend operational run notices.
     let finalPayloads = guardedReplyPayloads;
     const verboseNotices: ReplyPayload[] = [];
+    // Fallback notices are always visible (not gated behind verbose) so the
+    // user knows when a model switch happens and when it recovers.
+    const fallbackNotices: ReplyPayload[] = [];
 
     if (verboseEnabled && activeIsNewSession) {
       verboseNotices.push({ text: `🧭 New session: ${followupRun.run.sessionId}` });
@@ -615,16 +619,25 @@ export async function runReplyAgent(params: {
           attempts: fallbackAttempts,
         },
       });
-      if (verboseEnabled) {
-        const fallbackNotice = buildFallbackNotice({
-          selectedProvider,
-          selectedModel,
-          activeProvider: providerUsed,
-          activeModel: modelUsed,
-          attempts: fallbackAttempts,
-        });
-        if (fallbackNotice) {
-          verboseNotices.push({ text: fallbackNotice });
+      const fallbackNotice = buildFallbackNotice({
+        selectedProvider,
+        selectedModel,
+        activeProvider: providerUsed,
+        activeModel: modelUsed,
+        attempts: fallbackAttempts,
+      });
+      if (fallbackNotice) {
+        fallbackNotices.push({ text: fallbackNotice });
+        // Broadcast to other channels the user has communicated on.
+        if (replyToChannel) {
+          broadcastFallbackNotice({
+            notice: fallbackNotice,
+            originatingChannel: replyToChannel,
+            originatingTo: sessionCtx.OriginatingTo ?? sessionCtx.To ?? "",
+            sessionKey,
+            storePath,
+            cfg,
+          });
         }
       }
     }
@@ -642,13 +655,21 @@ export async function runReplyAgent(params: {
           previousActiveModel: fallbackTransition.previousState.activeModel,
         },
       });
-      if (verboseEnabled) {
-        verboseNotices.push({
-          text: buildFallbackClearedNotice({
-            selectedProvider,
-            selectedModel,
-            previousActiveModel: fallbackTransition.previousState.activeModel,
-          }),
+      const clearedNotice = buildFallbackClearedNotice({
+        selectedProvider,
+        selectedModel,
+        previousActiveModel: fallbackTransition.previousState.activeModel,
+      });
+      fallbackNotices.push({ text: clearedNotice });
+      // Broadcast recovery notice to other channels.
+      if (replyToChannel) {
+        broadcastFallbackNotice({
+          notice: clearedNotice,
+          originatingChannel: replyToChannel,
+          originatingTo: sessionCtx.OriginatingTo ?? sessionCtx.To ?? "",
+          sessionKey,
+          storePath,
+          cfg,
         });
       }
     }
@@ -681,6 +702,9 @@ export async function runReplyAgent(params: {
         const suffix = typeof count === "number" ? ` (count ${count})` : "";
         verboseNotices.push({ text: `🧹 Auto-compaction complete${suffix}.` });
       }
+    }
+    if (fallbackNotices.length > 0) {
+      finalPayloads = [...fallbackNotices, ...finalPayloads];
     }
     if (verboseNotices.length > 0) {
       finalPayloads = [...verboseNotices, ...finalPayloads];

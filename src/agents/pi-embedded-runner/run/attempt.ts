@@ -753,6 +753,25 @@ export async function runEmbeddedAttempt(
       bootstrapMaxChars,
       bootstrapTotalMaxChars,
     });
+    if (bootstrapAnalysis.hasTruncation) {
+      const summary = bootstrapAnalysis.truncatedFiles
+        .map((f) => `${f.name}: ${f.rawChars} raw → ${f.injectedChars} injected`)
+        .join("; ");
+      log.warn(
+        `bootstrap truncation: ${summary} ` +
+          `(budget: ${bootstrapTotalMaxChars} total, ${bootstrapMaxChars}/file); ` +
+          `sessionKey=${sessionLabel}`,
+      );
+    }
+    const zeroInjected = bootstrapAnalysis.files.filter(
+      (f) => !f.missing && f.rawChars > 0 && f.injectedChars === 0,
+    );
+    if (zeroInjected.length > 0) {
+      log.warn(
+        `bootstrap zero-injection: ${zeroInjected.map((f) => `${f.name} (${f.rawChars} chars available)`).join(", ")} — ` +
+          `files skipped entirely, agent is missing this context; sessionKey=${sessionLabel}`,
+      );
+    }
     const bootstrapPromptWarningMode = resolveBootstrapPromptTruncationWarningMode(params.config);
     const bootstrapPromptWarning = buildBootstrapPromptWarning({
       analysis: bootstrapAnalysis,
