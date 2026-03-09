@@ -11,6 +11,7 @@ import { resolveSandboxRuntimeStatus } from "../agents/sandbox.js";
 import type { SkillCommandSpec } from "../agents/skills.js";
 import { derivePromptTokens, normalizeUsage, type UsageLike } from "../agents/usage.js";
 import { resolveChannelModelOverride } from "../channels/model-overrides.js";
+import { resolveIdentityName } from "../agents/identity.js";
 import { isCommandFlagEnabled } from "../config/commands.js";
 import type { OpenClawConfig } from "../config/config.js";
 import {
@@ -408,6 +409,23 @@ const formatVoiceModeLine = (
   return `🔊 Voice: ${autoMode} · provider=${provider} · limit=${maxLength} · summary=${summarize}`;
 };
 
+function resolveModeTier(model: string): "Standard" | "Sharp" | "Deep Think" {
+  const m = model.toLowerCase();
+  if (m.includes("opus") || m.includes("o1") || m.includes("o3") || m.includes("deep-think")) {
+    return "Deep Think";
+  }
+  if (
+    m.includes("sonnet") ||
+    m.includes("gpt-4o") ||
+    m.includes("claude-3-5") ||
+    m.includes("claude-3-7")
+  ) {
+    return "Sharp";
+  }
+  // Default: Standard (Kimi, Haiku, budget/fast models)
+  return "Standard";
+}
+
 export function buildStatusMessage(args: StatusArgs): string {
   const now = args.now ?? Date.now();
   const entry = args.sessionEntry;
@@ -655,34 +673,48 @@ export function buildStatusMessage(args: StatusArgs): string {
         showFallbackAuth ? ` · 🔑 ${activeAuthLabelValue}` : ""
       } (${fallbackState.reason ?? "selected model unavailable"})`
     : null;
-  const commit = resolveCommitHash();
-  const versionLine = `🦞 OpenClaw ${VERSION}${commit ? ` (${commit})` : ""}`;
-  const usagePair = formatUsagePair(inputTokens, outputTokens);
-  const cacheLine = formatCacheLine(inputTokens, cacheRead, cacheWrite);
-  const costLine = costLabel ? `💵 Cost: ${costLabel}` : null;
-  const usageCostLine =
-    usagePair && costLine ? `${usagePair} · ${costLine}` : (usagePair ?? costLine);
-  const mediaLine = formatMediaUnderstandingLine(args.mediaDecisions);
-  const voiceLine = formatVoiceModeLine(args.config, args.sessionEntry);
+  // EBFC AI branded status output (language audit items 1-8, PO-approved)
+  const nowDate = new Date(now);
+  const monthName = nowDate.toLocaleDateString("en-US", { month: "long" });
+  const year = nowDate.getFullYear();
+  const ebfcVersionLine = `🏗️ EBFC AI · ${monthName} ${year}`;
 
-  return [
-    versionLine,
-    args.timeLine,
-    modelLine,
-    fallbackLine,
-    usageCostLine,
-    cacheLine,
-    `📚 ${contextLine}`,
-    mediaLine,
-    args.usageLine,
-    `🧵 ${sessionLine}`,
-    args.subagentsLine,
-    `⚙️ ${optionsLine}`,
-    voiceLine,
-    activationLine,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const companionName =
+    args.config && args.agentId
+      ? (resolveIdentityName(args.config, args.agentId) ?? "EBFC AI")
+      : "EBFC AI";
+  const modeTier = resolveModeTier(activeModel);
+  const companionLine = `🐻 ${companionName} · ${modeTier} mode`;
+
+  const timeStr = nowDate.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
+  const timeStrTime = nowDate.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+  const ebfcTimeLine = `🕒 ${timeStr} — ${timeStrTime} (your time)`;
+
+  const contextPct =
+    contextTokens && totalTokens ? Math.round((totalTokens / contextTokens) * 100) : 0;
+  const pageStartedAgo =
+    typeof updatedAt === "number" ? formatTimeAgo(now - updatedAt) : "just now";
+  const notebookLine = `📓 Notebook page: ${contextPct}% full · Started ${pageStartedAgo}`;
+
+  const queueBackedUp = (args.queue?.depth ?? 0) > 0;
+  const statusLine =
+    contextPct >= 80
+      ? `⚠️ ${companionName}'s memory is getting full. Consider starting a fresh page soon.`
+      : queueBackedUp
+        ? "⏳ Finishing something up — be right with you."
+        : "All systems go. Ready when you are.";
+
+  return [ebfcVersionLine, "", companionLine, ebfcTimeLine, notebookLine, "", statusLine].join(
+    "\n",
+  );
 }
 
 const CATEGORY_LABELS: Record<CommandCategory, string> = {
