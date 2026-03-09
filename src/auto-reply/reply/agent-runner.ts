@@ -685,6 +685,36 @@ export async function runReplyAgent(params: {
     if (verboseNotices.length > 0) {
       finalPayloads = [...verboseNotices, ...finalPayloads];
     }
+
+    // Proactive fresh page suggestion — nudge user when context window is getting full.
+    // Use last-call usage for fill ratio when available; accumulated `usage` sums input
+    // tokens from every API call in the run (tool-use loops, retries) and overstates
+    // actual context fill. `lastCallUsage` reflects the final API call — the true fill.
+    const freshPageUsage = runResult.meta?.agentMeta?.lastCallUsage ?? usage;
+    if (!activeIsNewSession && freshPageUsage != null && contextTokensUsed > 0) {
+      const inputTokens =
+        (freshPageUsage.input ?? 0) +
+        (freshPageUsage.cacheRead ?? 0) +
+        (freshPageUsage.cacheWrite ?? 0);
+      if (inputTokens > 0) {
+        const fillRatio = inputTokens / contextTokensUsed;
+        let freshPageWarning: string | null = null;
+        if (fillRatio >= 0.85) {
+          freshPageWarning =
+            "We need a fresh page now. Let me save our current state — type /fresh and we will keep going.";
+        } else if (fillRatio >= 0.75) {
+          freshPageWarning =
+            "This page is almost full. I recommend a fresh page soon so we do not lose any context. Just type /fresh.";
+        } else if (fillRatio >= 0.6) {
+          freshPageWarning =
+            "Our page is getting full. When you are ready, say fresh page and we will start a clean one — nothing is lost.";
+        }
+        if (freshPageWarning) {
+          finalPayloads = appendUsageLine(finalPayloads, freshPageWarning);
+        }
+      }
+    }
+
     if (responseUsageLine) {
       finalPayloads = appendUsageLine(finalPayloads, responseUsageLine);
     }
