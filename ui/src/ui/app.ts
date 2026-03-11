@@ -397,6 +397,15 @@ export class OpenClawApp extends LitElement {
   private themeMediaHandler: ((event: MediaQueryListEvent) => void) | null = null;
   private topbarObserver: ResizeObserver | null = null;
 
+  @state() welcomeOverlayVisible = false;
+  // Non-reactive: tracks in-session dismiss so re-evaluating state can't re-show
+  private _welcomeOverlayDismissed = false;
+  private _welcomeKeyDown = () => {
+    if (this.welcomeOverlayVisible) {
+      this.handleDismissWelcomeOverlay();
+    }
+  };
+
   createRenderRoot() {
     return this;
   }
@@ -404,6 +413,7 @@ export class OpenClawApp extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     handleConnected(this as unknown as Parameters<typeof handleConnected>[0]);
+    window.addEventListener("keydown", this._welcomeKeyDown);
   }
 
   protected firstUpdated() {
@@ -411,12 +421,53 @@ export class OpenClawApp extends LitElement {
   }
 
   disconnectedCallback() {
+    window.removeEventListener("keydown", this._welcomeKeyDown);
     handleDisconnected(this as unknown as Parameters<typeof handleDisconnected>[0]);
     super.disconnectedCallback();
   }
 
   protected updated(changed: Map<PropertyKey, unknown>) {
     handleUpdated(this as unknown as Parameters<typeof handleUpdated>[0], changed);
+    this._syncWelcomeOverlay(changed);
+  }
+
+  private _syncWelcomeOverlay(changed: Map<PropertyKey, unknown>) {
+    // Update document.title whenever the assistant name is resolved
+    if (changed.has("assistantName")) {
+      const name = this.assistantName.trim();
+      const isGeneric =
+        !name || name.toLowerCase() === "assistant" || name.toLowerCase() === "companion";
+      document.title = isGeneric ? "EBFC AI" : `EBFC AI | ${name}`;
+      // Allow re-show if name has changed since last dismiss
+      this._welcomeOverlayDismissed = false;
+    }
+
+    if (this._welcomeOverlayDismissed) {
+      if (this.welcomeOverlayVisible) {
+        this.welcomeOverlayVisible = false;
+      }
+      return;
+    }
+
+    const relevant = ["connected", "chatMessages", "chatLoading", "assistantName", "tab"];
+    if (!relevant.some((k) => changed.has(k))) {
+      return;
+    }
+
+    const alreadySeen = localStorage.getItem("welcomeOverlaySeen" + this.assistantName) === "1";
+    const noMessages = this.chatMessages.length === 0 && !this.chatLoading;
+    const onChatTab = this.tab === "chat";
+    const shouldShow = this.connected && onChatTab && noMessages && !alreadySeen;
+
+    if (shouldShow !== this.welcomeOverlayVisible) {
+      this.welcomeOverlayVisible = shouldShow;
+    }
+  }
+
+  handleDismissWelcomeOverlay() {
+    this._welcomeOverlayDismissed = true;
+    this.welcomeOverlayVisible = false;
+    localStorage.setItem("welcomeOverlaySeen" + this.assistantName, "1");
   }
 
   connect() {

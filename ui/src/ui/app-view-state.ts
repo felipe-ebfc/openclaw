@@ -320,4 +320,6 @@ export type AppViewState = {
     handleOpenSidebar: (content: string) => void;
     handleCloseSidebar: () => void;
     handleSplitRatioChange: (ratio: number) => void;
+    welcomeOverlayVisible: boolean;
+    handleDismissWelcomeOverlay: () => void;
   };

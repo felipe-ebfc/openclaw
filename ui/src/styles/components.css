@@ -2610,3 +2610,54 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ===========================================
+   Welcome Overlay
+   =========================================== */
+
+.welcome-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(2px);
+  animation: fade-in 0.2s ease-out;
+}
+
+.welcome-card {
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  padding: 36px 40px;
+  max-width: 460px;
+  width: 90%;
+  text-align: center;
+  box-shadow: var(--shadow-xl);
+  animation: rise 0.25s var(--ease-out) backwards;
+}
+
+.welcome-header {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 12px;
+  color: var(--text-strong);
+}
+
+.welcome-sub {
+  font-size: 1rem;
+  color: var(--muted);
+  margin-bottom: 24px;
+  line-height: 1.6;
+}
+
+.welcome-cta {
+  font-size: 0.9375rem;
+  padding: 10px 28px;
+}
+
+:root[data-theme="light"] .welcome-overlay {
+  background: rgba(0, 0, 0, 0.35);
+}
