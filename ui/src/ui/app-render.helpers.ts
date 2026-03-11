@@ -123,7 +123,11 @@ function renderCronFilterIcon(hiddenCount: number) {
 }
 
 export function renderChatControls(state: AppViewState) {
-  const mainSessionKey = resolveMainSessionKey(state.hello, state.sessionsResult);
+  const mainSessionKey = resolveMainSessionKey(
+    state.hello,
+    state.sessionsResult,
+    state.cachedMainSessionKey,
+  );
   const hideCron = state.sessionsHideCron ?? true;
   const hiddenCronCount = hideCron
     ? countHiddenCronSessions(state.sessionKey, state.sessionsResult)
@@ -294,6 +298,7 @@ export function renderChatControls(state: AppViewState) {
 function resolveMainSessionKey(
   hello: AppViewState["hello"],
   sessions: SessionsListResult | null,
+  cachedMainSessionKey?: string | null,
 ): string | null {
   const snapshot = hello?.snapshot as { sessionDefaults?: SessionDefaultsSnapshot } | undefined;
   const mainSessionKey = snapshot?.sessionDefaults?.mainSessionKey?.trim();
@@ -304,8 +309,16 @@ function resolveMainSessionKey(
   if (mainKey) {
     return mainKey;
   }
-  if (sessions?.sessions?.some((row) => row.key === "main")) {
-    return "main";
+  // Use cached value from a previous hello snapshot (survives reconnects).
+  if (cachedMainSessionKey) {
+    return cachedMainSessionKey;
+  }
+  // Fallback: check session list for main session keys (both bare and agent-prefixed).
+  const mainEntry = sessions?.sessions?.find(
+    (row) => row.key === "main" || row.key === "agent:main:main",
+  );
+  if (mainEntry) {
+    return mainEntry.key;
   }
   return null;
 }
