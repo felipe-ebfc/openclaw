@@ -274,9 +274,12 @@ export function classifyFailoverReasonFromHttpStatus(
   if (status === 408) {
     return "timeout";
   }
-  // Keep the status-only path conservative and behavior-preserving.
-  // Message-path HTTP heuristics are broader and should not leak in here.
-  if (status === 502 || status === 503 || status === 504) {
+  // Treat 5xx gateway/server errors as transient timeout-class failures so
+  // the failover loop skips the downed provider and auth-profile cooldowns
+  // are recorded correctly (previously 500 was unclassified, causing the
+  // primary to be re-probed on every request during an outage instead of
+  // falling back immediately).
+  if (status === 500 || status === 502 || status === 503 || status === 504) {
     return "timeout";
   }
   if (status === 529) {
