@@ -690,9 +690,11 @@ describe("agent event handler", () => {
 
     emitLifecycleEnd(handler, "run-heartbeat");
 
-    const finalPayload = expectSingleFinalChatPayload(broadcast) as { message?: unknown };
-    expect(finalPayload.message).toBeUndefined();
-    expect(sessionChatCalls(nodeSendToSession)).toHaveLength(1);
+    // Heartbeat finals with suppressed content must not be broadcast at all —
+    // an empty-message final triggers the UI to reload chat history, which
+    // clears the visible conversation.
+    expect(chatBroadcastCalls(broadcast)).toHaveLength(0);
+    expect(sessionChatCalls(nodeSendToSession)).toHaveLength(0);
   });
 
   it("keeps heartbeat alert text in final chat output when remainder exceeds ackMaxChars", () => {

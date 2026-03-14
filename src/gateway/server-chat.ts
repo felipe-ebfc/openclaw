@@ -445,6 +445,12 @@ export function createAgentEventHandler({
     chatRunState.deltaLastBroadcastLen.delete(clientRunId);
     chatRunState.buffers.delete(clientRunId);
     chatRunState.deltaSentAt.delete(clientRunId);
+    // Suppress heartbeat finals entirely — broadcasting an empty-message final
+    // causes the webchat UI to reload history (shouldReloadHistoryForFinalEvent
+    // returns true when message is undefined), which can clear the visible chat.
+    if (shouldSuppressHeartbeatStreaming && shouldSuppressSilent) {
+      return;
+    }
     if (jobState === "done") {
       const payload = {
         runId: clientRunId,
