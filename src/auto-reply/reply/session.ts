@@ -447,7 +447,9 @@ export async function initSessionState(params: {
     queueDrop: baseEntry?.queueDrop,
     displayName: baseEntry?.displayName,
     chatType: baseEntry?.chatType,
-    channel: baseEntry?.channel,
+    // Default the main session's channel to "webchat" so it always
+    // appears in the UI dropdown — even when heartbeat creates it first.
+    channel: baseEntry?.channel ?? (sessionKey.endsWith(":main") ? "webchat" : undefined),
     groupId: baseEntry?.groupId,
     subject: baseEntry?.subject,
     groupChannel: baseEntry?.groupChannel,
