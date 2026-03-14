@@ -639,10 +639,10 @@ describe("buildCommandsMessage", () => {
     } as unknown as OpenClawConfig);
     expect(text).toContain("ℹ️ Slash commands");
     expect(text).toContain("Status");
-    expect(text).toContain("/commands - List all slash commands.");
-    expect(text).toContain("/skill - Run a skill by name.");
-    expect(text).toContain("/think (/thinking, /t) - Set thinking level.");
-    expect(text).toContain("/compact - Compact the session context.");
+    expect(text).toContain("/commands");
+    expect(text).toContain("/tool");
+    expect(text).toContain("/think");
+    expect(text).toContain("/summarize");
     expect(text).not.toContain("/config");
     expect(text).not.toContain("/debug");
   });
@@ -665,12 +665,14 @@ describe("buildCommandsMessage", () => {
 });
 
 describe("buildHelpMessage", () => {
-  it("hides config/debug when disabled", () => {
+  it("shows rebranded help output", () => {
     const text = buildHelpMessage({
       commands: { config: false, debug: false },
     } as unknown as OpenClawConfig);
-    expect(text).toContain("Skills");
-    expect(text).toContain("/skill <name> [input]");
+    expect(text).toContain("What can I help with?");
+    expect(text).toContain("/fresh");
+    expect(text).toContain("/mode");
+    expect(text).toContain("/notebook");
     expect(text).not.toContain("/config");
     expect(text).not.toContain("/debug");
   });

@@ -12,7 +12,6 @@ import { resolveSandboxRuntimeStatus } from "../agents/sandbox.js";
 import type { SkillCommandSpec } from "../agents/skills.js";
 import { derivePromptTokens, normalizeUsage, type UsageLike } from "../agents/usage.js";
 import { resolveChannelModelOverride } from "../channels/model-overrides.js";
-import { isCommandFlagEnabled } from "../config/commands.js";
 import type { OpenClawConfig } from "../config/config.js";
 import {
   resolveMainSessionKey,
@@ -162,6 +161,32 @@ function resolveRuntimeLabel(
   })();
   const runtime = sandboxed ? "docker" : sessionKey ? "direct" : "unknown";
   return `${runtime}/${sandboxMode}`;
+}
+
+/**
+ * Map model identifiers to user-friendly mode names for branded deployments.
+ * Keys are lowercase substrings matched against the model string.
+ */
+const MODE_NAME_MAP: { match: string; name: string; emoji: string }[] = [
+  { match: "kimi", name: "Fast", emoji: "🟢" },
+  { match: "sonnet", name: "Sharp", emoji: "🔵" },
+  { match: "opus", name: "Deep", emoji: "🟣" },
+  { match: "haiku", name: "Fast", emoji: "🟢" },
+  { match: "gpt-4o-mini", name: "Fast", emoji: "🟢" },
+  { match: "gpt-4o", name: "Sharp", emoji: "🔵" },
+  { match: "gpt-4", name: "Deep", emoji: "🟣" },
+  { match: "o1", name: "Deep", emoji: "🟣" },
+  { match: "o3", name: "Deep", emoji: "🟣" },
+];
+
+function resolveModeName(model: string): { name: string; emoji: string } | undefined {
+  const lower = model.toLowerCase();
+  for (const entry of MODE_NAME_MAP) {
+    if (lower.includes(entry.match)) {
+      return { name: entry.name, emoji: entry.emoji };
+    }
+  }
+  return undefined;
 }
 
 /** Format a YYYY.M.D version string as "Mon YYYY" (e.g. "2026.3.9" → "Mar 2026"). */
@@ -705,6 +730,56 @@ export function buildStatusMessage(args: StatusArgs): string {
   const mediaLine = formatMediaUnderstandingLine(args.mediaDecisions);
   const voiceLine = formatVoiceModeLine(args.config, args.sessionEntry);
 
+  // Branded output: clean, human-friendly format when identity is configured.
+  if (identityName) {
+    const mode = resolveModeName(activeModel);
+    const modeLabel = mode ? `${mode.emoji} ${mode.name} mode` : activeModelLabel;
+    const companionName = identityConfig?.name?.trim() || identityName;
+    const companionEmoji = identityConfig?.emoji?.trim() || identityEmoji || "🏗️";
+
+    const pct =
+      contextTokens && totalTokens
+        ? Math.min(100, Math.round((totalTokens / contextTokens) * 100))
+        : null;
+    const pctLabel = pct !== null ? `${pct}% full` : "ready";
+    const roomLeft = pct !== null ? `${100 - pct}% room left` : "";
+
+    const notebookLine = roomLeft
+      ? `📓 Notebook: ${pctLabel} · ${roomLeft}`
+      : `📓 Notebook: ${pctLabel}`;
+
+    const sessionUpdated =
+      typeof updatedAt === "number" ? formatTimeAgo(now - updatedAt) : "just now";
+    const pageLine = `📝 Page started: ${sessionUpdated}`;
+
+    // Status footer: readiness check
+    let statusFooter: string;
+    if (pct !== null && pct >= 85) {
+      statusFooter = `⚠️ Last few lines on this page. Let's do /fresh after this.`;
+    } else if (pct !== null && pct >= 75) {
+      statusFooter = `⚠️ Almost out of room. Consider /fresh soon.`;
+    } else if (pct !== null && pct >= 60) {
+      statusFooter = `📓 Notebook's getting full. Good time to /fresh when ready.`;
+    } else if (fallbackState.active) {
+      statusFooter = `⚙️ Switching gears — using ${modeLabel} right now.`;
+    } else {
+      statusFooter = "All systems go. Ready when you are.";
+    }
+
+    return [
+      versionLine,
+      "",
+      `${companionEmoji} ${companionName} · ${modeLabel}`,
+      args.timeLine,
+      `${notebookLine} · ${pageLine}`,
+      "",
+      statusFooter,
+    ]
+      .filter((line) => line != null)
+      .join("\n");
+  }
+
+  // Default (non-branded) output: full technical details.
   return [
     versionLine,
     args.timeLine,
@@ -762,32 +837,33 @@ function groupCommandsByCategory(
 }
 
 export function buildHelpMessage(cfg?: OpenClawConfig): string {
-  const lines = ["ℹ️ Help", ""];
+  // Resolve identity for branded help header
+  const identityConfig = cfg ? resolveAgentIdentity(cfg, "main") : undefined;
+  const companionName = identityConfig?.name?.trim();
+  const companionEmoji = identityConfig?.emoji?.trim() || "🏗️";
+  const header = companionName
+    ? `${companionEmoji} What can I help with?`
+    : "ℹ️ What can I help with?";
 
-  lines.push("Session");
-  lines.push("  /new  |  /reset  |  /compact [instructions]  |  /stop");
+  const lines = [header, ""];
+
+  lines.push("Getting started");
+  lines.push("  /fresh — Turn to a fresh page");
+  lines.push("  /stop — Pause the conversation");
   lines.push("");
 
-  const optionParts = ["/think <level>", "/model <id>", "/verbose on|off"];
-  if (isCommandFlagEnabled(cfg, "config")) {
-    optionParts.push("/config");
-  }
-  if (isCommandFlagEnabled(cfg, "debug")) {
-    optionParts.push("/debug");
-  }
-  lines.push("Options");
-  lines.push(`  ${optionParts.join("  |  ")}`);
+  lines.push("How I'm working");
+  lines.push("  /status — Quick check-in");
+  lines.push("  /mode — Switch between Fast, Sharp, and Deep");
+  lines.push("  /think on|off — Toggle extended thinking");
   lines.push("");
 
-  lines.push("Status");
-  lines.push("  /status  |  /whoami  |  /context");
-  lines.push("");
-
-  lines.push("Skills");
-  lines.push("  /skill <name> [input]");
+  lines.push("About you");
+  lines.push("  /whoami — See your profile");
+  lines.push("  /notebook — Check how much room we have");
 
   lines.push("");
-  lines.push("More: /commands for full list");
+  lines.push("Need more? Just ask me — I'm better at plain English than slash commands. 🏗️");
 
   return lines.join("\n");
 }
