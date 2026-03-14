@@ -21,7 +21,8 @@ if (mode !== "lint" && mode !== "format") {
 }
 
 const lintExts = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"]);
-const formatExts = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".md", ".mdx"]);
+// oxfmt only supports JS/TS/JSON; .md/.mdx are excluded (oxfmt returns an error for them)
+const formatExts = new Set([".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json"]);
 
 const shouldSelect = (filePath) => {
   const ext = path.extname(filePath).toLowerCase();
