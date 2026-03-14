@@ -82,46 +82,6 @@ export function renderTab(state: AppViewState, tab: Tab) {
   `;
 }
 
-function renderCronFilterIcon(hiddenCount: number) {
-  return html`
-    <span style="position: relative; display: inline-flex; align-items: center;">
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        aria-hidden="true"
-      >
-        <circle cx="12" cy="12" r="10"></circle>
-        <polyline points="12 6 12 12 16 14"></polyline>
-      </svg>
-      ${
-        hiddenCount > 0
-          ? html`<span
-            style="
-              position: absolute;
-              top: -5px;
-              right: -6px;
-              background: var(--color-accent, #6366f1);
-              color: #fff;
-              border-radius: 999px;
-              font-size: 9px;
-              line-height: 1;
-              padding: 1px 3px;
-              pointer-events: none;
-            "
-          >${hiddenCount}</span
-          >`
-          : ""
-      }
-    </span>
-  `;
-}
-
 export function renderChatControls(state: AppViewState) {
   const mainSessionKey = resolveMainSessionKey(
     state.hello,
@@ -129,9 +89,6 @@ export function renderChatControls(state: AppViewState) {
     state.cachedMainSessionKey,
   );
   const hideCron = state.sessionsHideCron ?? true;
-  const hiddenCronCount = hideCron
-    ? countHiddenCronSessions(state.sessionKey, state.sessionsResult)
-    : 0;
   const sessionOptions = resolveSessionOptions(
     state.sessionKey,
     state.sessionsResult,
@@ -274,22 +231,6 @@ export function renderChatControls(state: AppViewState) {
         title=${disableFocusToggle ? t("chat.onboardingDisabled") : t("chat.focusToggle")}
       >
         ${focusIcon}
-      </button>
-      <button
-        class="btn btn--sm btn--icon ${hideCron ? "active" : ""}"
-        @click=${() => {
-          state.sessionsHideCron = !hideCron;
-        }}
-        aria-pressed=${hideCron}
-        title=${
-          hideCron
-            ? hiddenCronCount > 0
-              ? t("chat.showCronSessionsHidden", { count: String(hiddenCronCount) })
-              : t("chat.showCronSessions")
-            : t("chat.hideCronSessions")
-        }
-      >
-        ${renderCronFilterIcon(hiddenCronCount)}
       </button>
     </div>
   `;
@@ -489,15 +430,6 @@ function resolveSessionOptions(
   }
 
   return options;
-}
-
-/** Count sessions with a cron: key that would be hidden when hideCron=true. */
-function countHiddenCronSessions(sessionKey: string, sessions: SessionsListResult | null): number {
-  if (!sessions?.sessions) {
-    return 0;
-  }
-  // Don't count the currently active session even if it's a cron.
-  return sessions.sessions.filter((s) => isCronSessionKey(s.key) && s.key !== sessionKey).length;
 }
 
 const THEME_ORDER: ThemeMode[] = ["system", "light", "dark"];
