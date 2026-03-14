@@ -1,12 +1,16 @@
 import {
   readQwenCliCredentialsCached,
   readMiniMaxCliCredentialsCached,
+  readClaudeCliCredentialsCached,
+  readCodexCliCredentialsCached,
 } from "../cli-credentials.js";
 import {
   EXTERNAL_CLI_NEAR_EXPIRY_MS,
   EXTERNAL_CLI_SYNC_TTL_MS,
   QWEN_CLI_PROFILE_ID,
   MINIMAX_CLI_PROFILE_ID,
+  CLAUDE_CLI_PROFILE_ID,
+  CODEX_CLI_PROFILE_ID,
   log,
 } from "./constants.js";
 import type { AuthProfileCredential, AuthProfileStore, OAuthCredential } from "./types.js";
@@ -30,6 +34,13 @@ function shallowEqualOAuthCredentials(a: OAuthCredential | undefined, b: OAuthCr
   );
 }
 
+const EXTERNAL_CLI_PROVIDERS = new Set([
+  "qwen-portal",
+  "minimax-portal",
+  "anthropic",
+  "openai-codex",
+]);
+
 function isExternalProfileFresh(cred: AuthProfileCredential | undefined, now: number): boolean {
   if (!cred) {
     return false;
@@ -37,7 +48,7 @@ function isExternalProfileFresh(cred: AuthProfileCredential | undefined, now: nu
   if (cred.type !== "oauth" && cred.type !== "token") {
     return false;
   }
-  if (cred.provider !== "qwen-portal" && cred.provider !== "minimax-portal") {
+  if (!EXTERNAL_CLI_PROVIDERS.has(cred.provider)) {
     return false;
   }
   if (typeof cred.expires !== "number") {
@@ -125,6 +136,36 @@ export function syncExternalCliCredentials(store: AuthProfileStore): boolean {
       MINIMAX_CLI_PROFILE_ID,
       "minimax-portal",
       () => readMiniMaxCliCredentialsCached({ ttlMs: EXTERNAL_CLI_SYNC_TTL_MS }),
+      now,
+    )
+  ) {
+    mutated = true;
+  }
+
+  // Sync from Claude Code CLI (keeps OAuth tokens fresh from keychain/credentials file)
+  if (
+    syncExternalCliCredentialsForProvider(
+      store,
+      CLAUDE_CLI_PROFILE_ID,
+      "anthropic",
+      () => {
+        const cred = readClaudeCliCredentialsCached({ ttlMs: EXTERNAL_CLI_SYNC_TTL_MS });
+        // Only sync OAuth credentials; token-type credentials are static and not refreshable.
+        return cred?.type === "oauth" ? cred : null;
+      },
+      now,
+    )
+  ) {
+    mutated = true;
+  }
+
+  // Sync from Codex CLI
+  if (
+    syncExternalCliCredentialsForProvider(
+      store,
+      CODEX_CLI_PROFILE_ID,
+      "openai-codex",
+      () => readCodexCliCredentialsCached({ ttlMs: EXTERNAL_CLI_SYNC_TTL_MS }),
       now,
     )
   ) {

@@ -84,15 +84,29 @@ export function readSessionMessages(
   }
 
   const lines = fs.readFileSync(filePath, "utf-8").split(/\r?\n/);
-  const messages: unknown[] = [];
+
+  // Parse all entries preserving id/parentId so we can resolve the active branch.
+  // Pi sessions are a parentId-linked DAG; when concurrent messages (e.g. heartbeat
+  // + user message) create branches, only the active leaf path should be shown.
+  type Entry = { id?: string; parentId?: string; message?: unknown; compaction?: unknown };
+  const entries: Entry[] = [];
+  const byId = new Map<string, Entry>();
+
   for (const line of lines) {
     if (!line.trim()) {
       continue;
     }
     try {
       const parsed = JSON.parse(line);
+      const id = typeof parsed?.id === "string" ? parsed.id : undefined;
+      const parentId = typeof parsed?.parentId === "string" ? parsed.parentId : undefined;
+
       if (parsed?.message) {
-        messages.push(parsed.message);
+        const entry: Entry = { id, parentId, message: parsed.message };
+        entries.push(entry);
+        if (id) {
+          byId.set(id, entry);
+        }
         continue;
       }
 
@@ -101,18 +115,59 @@ export function readSessionMessages(
       if (parsed?.type === "compaction") {
         const ts = typeof parsed.timestamp === "string" ? Date.parse(parsed.timestamp) : Number.NaN;
         const timestamp = Number.isFinite(ts) ? ts : Date.now();
-        messages.push({
+        const compactionMsg = {
           role: "system",
           content: [{ type: "text", text: "Compaction" }],
           timestamp,
           __openclaw: {
             kind: "compaction",
-            id: typeof parsed.id === "string" ? parsed.id : undefined,
+            id,
           },
-        });
+        };
+        const entry: Entry = { id, parentId, message: compactionMsg };
+        entries.push(entry);
+        if (id) {
+          byId.set(id, entry);
+        }
       }
     } catch {
       // ignore bad lines
+    }
+  }
+
+  // If message entries lack ids (legacy sessions or non-tree transcripts), return flat list.
+  // Compaction entries may carry their own id that isn't part of the parentId tree.
+  const hasTreeIds = entries.some((e) => e.id && e.parentId);
+  if (!hasTreeIds) {
+    return entries.map((e) => e.message).filter(Boolean);
+  }
+
+  // Walk from the last entry (leaf) to root via parentId chain to get the active branch.
+  const leaf = entries[entries.length - 1];
+  if (!leaf) {
+    return [];
+  }
+  const activeIds = new Set<string>();
+  let current: Entry | undefined = leaf;
+  while (current) {
+    if (current.id) {
+      activeIds.add(current.id);
+    }
+    current = current.parentId ? byId.get(current.parentId) : undefined;
+  }
+
+  // Return messages on the active path in original order.
+  const messages: unknown[] = [];
+  for (const entry of entries) {
+    if (entry.id && activeIds.has(entry.id)) {
+      if (entry.message) {
+        messages.push(entry.message);
+      }
+    } else if (!entry.id) {
+      // Entries without ids (legacy) are always included.
+      if (entry.message) {
+        messages.push(entry.message);
+      }
     }
   }
   return messages;

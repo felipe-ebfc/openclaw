@@ -154,6 +154,8 @@ export type AppViewState = {
   sessionsIncludeGlobal: boolean;
   sessionsIncludeUnknown: boolean;
   sessionsHideCron: boolean;
+  /** Cached from hello snapshot so the dropdown survives transient reconnects. */
+  cachedMainSessionKey: string | null;
   usageLoading: boolean;
   usageResult: SessionsUsageResult | null;
   usageCostSummary: CostUsageSummary | null;
@@ -318,4 +320,6 @@ export type AppViewState = {
     handleOpenSidebar: (content: string) => void;
     handleCloseSidebar: () => void;
     handleSplitRatioChange: (ratio: number) => void;
+    welcomeOverlayVisible: boolean;
+    handleDismissWelcomeOverlay: () => void;
   };

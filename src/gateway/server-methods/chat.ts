@@ -9,7 +9,7 @@ import { createReplyDispatcher } from "../../auto-reply/reply/reply-dispatcher.j
 import type { MsgContext } from "../../auto-reply/templating.js";
 import { isSilentReplyText, SILENT_REPLY_TOKEN } from "../../auto-reply/tokens.js";
 import { createReplyPrefixOptions } from "../../channels/reply-prefix.js";
-import { resolveSessionFilePath } from "../../config/sessions.js";
+import { resolveSessionFilePath, updateSessionStore } from "../../config/sessions.js";
 import { jsonUtf8Bytes } from "../../infra/json-utf8-bytes.js";
 import { resolveSendPolicy } from "../../sessions/send-policy.js";
 import { parseAgentSessionKey } from "../../sessions/session-key-utils.js";
@@ -790,7 +790,23 @@ export const chatHandlers: GatewayRequestHandlers = {
       }
     }
     const rawSessionKey = p.sessionKey;
-    const { cfg, entry, canonicalKey: sessionKey } = loadSessionEntry(rawSessionKey);
+    const { cfg, entry, canonicalKey: sessionKey, storePath } = loadSessionEntry(rawSessionKey);
+
+    // Bind the "webchat" channel to the session entry so it stays visible
+    // in the UI session dropdown after gateway restarts. Without this,
+    // the session's channel remains "?" and the dropdown filters it out.
+    const isFromWebchat =
+      isWebchatClient(client?.connect?.client) ||
+      client?.connect?.client?.mode === GATEWAY_CLIENT_MODES.UI;
+    if (isFromWebchat && storePath && entry?.channel !== "webchat") {
+      void updateSessionStore(storePath, (store) => {
+        const current = store[sessionKey];
+        if (current && current.channel !== "webchat") {
+          current.channel = "webchat";
+        }
+      });
+    }
+
     const timeoutMs = resolveAgentTimeoutMs({
       cfg,
       overrideMs: p.timeoutMs,

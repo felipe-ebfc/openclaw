@@ -66,6 +66,14 @@ export async function getGoogleChatAccessToken(
 ): Promise<string> {
   const auth = getAuthInstance(account);
   const client = await auth.getClient();
+  // gaxios 7.x CJS falls back to `import('node-fetch')` which can fail under
+  // pnpm + Node 22 (ESM interop bug). Force native fetch when available.
+  if (globalThis.fetch && "transporter" in client) {
+    const t = (client as { transporter?: { defaults?: Record<string, unknown> } }).transporter;
+    if (t?.defaults && !t.defaults.fetchImplementation) {
+      t.defaults.fetchImplementation = globalThis.fetch;
+    }
+  }
   const access = await client.getAccessToken();
   const token = typeof access === "string" ? access : access?.token;
   if (!token) {

@@ -138,6 +138,10 @@ function applySessionDefaults(host: GatewayHost, defaults?: SessionDefaultsSnaps
   if (!defaults?.mainSessionKey) {
     return;
   }
+  // Cache mainSessionKey so the chat dropdown survives transient reconnects
+  // where hello is temporarily null.
+  const typed = host as unknown as { cachedMainSessionKey: string | null };
+  typed.cachedMainSessionKey = defaults.mainSessionKey;
   const resolvedSessionKey = normalizeSessionKeyForDefaults(host.sessionKey, defaults);
   const resolvedSettingsSessionKey = normalizeSessionKeyForDefaults(
     host.settings.sessionKey,

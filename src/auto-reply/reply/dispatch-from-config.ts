@@ -215,7 +215,8 @@ export async function dispatchReplyFromConfig(params: {
   const surfaceChannel = normalizeMessageChannel(ctx.Surface);
   // Prefer provider channel because surface may carry origin metadata in relayed flows.
   // Exception: webchat provider uses surface as currentSurface (webchat is internal dispatcher)
-  const currentSurface = providerChannel === "webchat" ? surfaceChannel : (providerChannel ?? surfaceChannel);
+  const currentSurface =
+    providerChannel === "webchat" ? surfaceChannel : (providerChannel ?? surfaceChannel);
   const shouldRouteToOriginating = Boolean(
     isRoutableChannel(originatingChannel) && originatingTo && originatingChannel !== currentSurface,
   );

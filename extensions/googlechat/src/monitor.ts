@@ -250,8 +250,9 @@ async function processMessageWithPipeline(params: {
     Surface: "googlechat",
     MessageSid: message.name,
     MessageSidFull: message.name,
-    ReplyToId: message.thread?.name,
-    ReplyToIdFull: message.thread?.name,
+    // Only thread replies in group spaces; DMs should stay flat.
+    ReplyToId: isGroup ? message.thread?.name : undefined,
+    ReplyToIdFull: isGroup ? message.thread?.name : undefined,
     MediaPath: mediaPath,
     MediaType: mediaType,
     MediaUrl: mediaPath,
@@ -295,7 +296,7 @@ async function processMessageWithPipeline(params: {
         account,
         space: spaceId,
         text: `_${botName} is typing..._`,
-        thread: message.thread?.name,
+        thread: isGroup ? message.thread?.name : undefined,
       });
       typingMessageName = result?.messageName;
     } catch (err) {
@@ -310,35 +311,54 @@ async function processMessageWithPipeline(params: {
     accountId: route.accountId,
   });
 
-  await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
-    ctx: ctxPayload,
-    cfg: config,
-    dispatcherOptions: {
-      ...prefixOptions,
-      deliver: async (payload) => {
-        await deliverGoogleChatReply({
-          payload,
-          account,
-          spaceId,
-          runtime,
-          core,
-          config,
-          statusSink,
-          typingMessageName,
-        });
-        // Only use typing message for first delivery
-        typingMessageName = undefined;
+  try {
+    await core.channel.reply.dispatchReplyWithBufferedBlockDispatcher({
+      ctx: ctxPayload,
+      cfg: config,
+      dispatcherOptions: {
+        ...prefixOptions,
+        deliver: async (payload) => {
+          await deliverGoogleChatReply({
+            payload,
+            account,
+            spaceId,
+            runtime,
+            core,
+            config,
+            statusSink,
+            typingMessageName,
+          });
+          // Only use typing message for first delivery
+          typingMessageName = undefined;
+        },
+        onError: (err, info) => {
+          runtime.error?.(
+            `[${account.accountId}] Google Chat ${info.kind} reply failed: ${String(err)}`,
+          );
+        },
       },
-      onError: (err, info) => {
-        runtime.error?.(
-          `[${account.accountId}] Google Chat ${info.kind} reply failed: ${String(err)}`,
-        );
+      replyOptions: {
+        onModelSelected,
       },
-    },
-    replyOptions: {
-      onModelSelected,
-    },
-  });
+    });
+  } catch (err) {
+    // Error boundary: when the agent run fails (e.g. all fallback models down),
+    // send an error message back instead of silently dropping the message.
+    runtime.error?.(`[${account.accountId}] Google Chat agent run failed: ${String(err)}`);
+    try {
+      await deliverGoogleChatReply({
+        payload: { text: "I'm having trouble right now — please try again in a moment." },
+        account,
+        spaceId,
+        runtime,
+        core,
+        config,
+        statusSink,
+      });
+    } catch {
+      runtime.error?.(`[${account.accountId}] Google Chat: failed delivering error reply`);
+    }
+  }
 }
 
 async function downloadAttachment(

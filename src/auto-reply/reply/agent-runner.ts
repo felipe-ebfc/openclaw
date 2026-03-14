@@ -47,6 +47,7 @@ import {
 import { appendUsageLine, formatResponseUsageLine } from "./agent-runner-utils.js";
 import { createAudioAsVoiceBuffer, createBlockReplyPipeline } from "./block-reply-pipeline.js";
 import { resolveEffectiveBlockStreamingConfig } from "./block-streaming.js";
+import { broadcastFallbackNotice } from "./fallback-cross-channel.js";
 import { createFollowupRunner } from "./followup-runner.js";
 import { resolveOriginMessageProvider, resolveOriginMessageTo } from "./origin-routing.js";
 import { readPostCompactionContext } from "./post-compaction-context.js";
@@ -594,6 +595,9 @@ export async function runReplyAgent(params: {
     // If verbose is enabled, prepend operational run notices.
     let finalPayloads = guardedReplyPayloads;
     const verboseNotices: ReplyPayload[] = [];
+    // Fallback notices are always visible (not gated behind verbose) so the
+    // user knows when a model switch happens and when it recovers.
+    const fallbackNotices: ReplyPayload[] = [];
 
     if (verboseEnabled && activeIsNewSession) {
       verboseNotices.push({ text: `🧭 New session: ${followupRun.run.sessionId}` });
@@ -615,16 +619,25 @@ export async function runReplyAgent(params: {
           attempts: fallbackAttempts,
         },
       });
-      if (verboseEnabled) {
-        const fallbackNotice = buildFallbackNotice({
-          selectedProvider,
-          selectedModel,
-          activeProvider: providerUsed,
-          activeModel: modelUsed,
-          attempts: fallbackAttempts,
-        });
-        if (fallbackNotice) {
-          verboseNotices.push({ text: fallbackNotice });
+      const fallbackNotice = buildFallbackNotice({
+        selectedProvider,
+        selectedModel,
+        activeProvider: providerUsed,
+        activeModel: modelUsed,
+        attempts: fallbackAttempts,
+      });
+      if (fallbackNotice) {
+        fallbackNotices.push({ text: fallbackNotice });
+        // Broadcast to other channels the user has communicated on.
+        if (replyToChannel) {
+          broadcastFallbackNotice({
+            notice: fallbackNotice,
+            originatingChannel: replyToChannel,
+            originatingTo: sessionCtx.OriginatingTo ?? sessionCtx.To ?? "",
+            sessionKey,
+            storePath,
+            cfg,
+          });
         }
       }
     }
@@ -642,19 +655,27 @@ export async function runReplyAgent(params: {
           previousActiveModel: fallbackTransition.previousState.activeModel,
         },
       });
-      if (verboseEnabled) {
-        verboseNotices.push({
-          text: buildFallbackClearedNotice({
-            selectedProvider,
-            selectedModel,
-            previousActiveModel: fallbackTransition.previousState.activeModel,
-          }),
+      const clearedNotice = buildFallbackClearedNotice({
+        selectedProvider,
+        selectedModel,
+        previousActiveModel: fallbackTransition.previousState.activeModel,
+      });
+      fallbackNotices.push({ text: clearedNotice });
+      // Broadcast recovery notice to other channels.
+      if (replyToChannel) {
+        broadcastFallbackNotice({
+          notice: clearedNotice,
+          originatingChannel: replyToChannel,
+          originatingTo: sessionCtx.OriginatingTo ?? sessionCtx.To ?? "",
+          sessionKey,
+          storePath,
+          cfg,
         });
       }
     }
 
     if (autoCompactionCompleted) {
-      const count = await incrementRunCompactionCount({
+      const _count = await incrementRunCompactionCount({
         sessionEntry: activeSessionEntry,
         sessionStore: activeSessionStore,
         sessionKey,
@@ -678,31 +699,38 @@ export async function runReplyAgent(params: {
       }
 
       if (verboseEnabled) {
-        const suffix = typeof count === "number" ? ` (count ${count})` : "";
-        verboseNotices.push({ text: `🧹 Auto-compaction complete${suffix}.` });
+        verboseNotices.push({ text: `📓 Notes tidied up — we're good to keep going.` });
       }
+    }
+    if (fallbackNotices.length > 0) {
+      finalPayloads = [...fallbackNotices, ...finalPayloads];
     }
     if (verboseNotices.length > 0) {
       finalPayloads = [...verboseNotices, ...finalPayloads];
     }
 
     // Proactive fresh page suggestion — nudge user when context window is getting full.
-    // Uses input tokens (conversation history sent to model) as a proxy for fill level.
-    if (!activeIsNewSession && usage != null && contextTokensUsed > 0) {
+    // Use last-call usage for fill ratio when available; accumulated `usage` sums input
+    // tokens from every API call in the run (tool-use loops, retries) and overstates
+    // actual context fill. `lastCallUsage` reflects the final API call — the true fill.
+    const freshPageUsage = runResult.meta?.agentMeta?.lastCallUsage ?? usage;
+    if (!activeIsNewSession && freshPageUsage != null && contextTokensUsed > 0) {
       const inputTokens =
-        (usage.input ?? 0) + (usage.cacheRead ?? 0) + (usage.cacheWrite ?? 0);
+        (freshPageUsage.input ?? 0) +
+        (freshPageUsage.cacheRead ?? 0) +
+        (freshPageUsage.cacheWrite ?? 0);
       if (inputTokens > 0) {
         const fillRatio = inputTokens / contextTokensUsed;
         let freshPageWarning: string | null = null;
         if (fillRatio >= 0.85) {
           freshPageWarning =
-            "We need a fresh page now. Let me save our current state — type /fresh and we will keep going.";
+            "📓 Last few lines on this page. Saving everything important now — let's do /fresh after this.";
         } else if (fillRatio >= 0.75) {
           freshPageWarning =
-            "This page is almost full. I recommend a fresh page soon so we do not lose any context. Just type /fresh.";
+            "📓 Almost out of room on this page. Let's save our notes and start fresh — /fresh";
         } else if (fillRatio >= 0.6) {
           freshPageWarning =
-            "Our page is getting full. When you are ready, say fresh page and we will start a clean one — nothing is lost.";
+            "📓 Notebook's getting full. Good time to wrap up this topic and turn to a fresh page.";
         }
         if (freshPageWarning) {
           finalPayloads = appendUsageLine(finalPayloads, freshPageWarning);

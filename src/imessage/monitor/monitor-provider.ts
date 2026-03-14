@@ -396,18 +396,43 @@ export async function monitorIMessageProvider(opts: MonitorIMessageOpts = {}): P
       },
     });
 
-    const { queuedFinal } = await dispatchInboundMessage({
-      ctx: ctxPayload,
-      cfg,
-      dispatcher,
-      replyOptions: {
-        disableBlockStreaming:
-          typeof accountInfo.config.blockStreaming === "boolean"
-            ? !accountInfo.config.blockStreaming
-            : undefined,
-        onModelSelected,
-      },
-    });
+    let queuedFinal = false;
+    try {
+      const result = await dispatchInboundMessage({
+        ctx: ctxPayload,
+        cfg,
+        dispatcher,
+        replyOptions: {
+          disableBlockStreaming:
+            typeof accountInfo.config.blockStreaming === "boolean"
+              ? !accountInfo.config.blockStreaming
+              : undefined,
+          onModelSelected,
+        },
+      });
+      queuedFinal = result.queuedFinal;
+    } catch (err) {
+      // Error boundary: when the agent run fails (e.g. all fallback models down),
+      // send an error message back instead of silently dropping the message.
+      runtime.error?.(danger(`imessage agent run failed: ${String(err)}`));
+      const target = ctxPayload.To;
+      if (target) {
+        try {
+          await deliverReplies({
+            replies: [{ text: "I'm having trouble right now — please try again in a moment." }],
+            target,
+            client,
+            accountId: accountInfo.accountId,
+            runtime,
+            maxBytes: mediaMaxBytes,
+            textLimit,
+            sentMessageCache,
+          });
+        } catch {
+          runtime.error?.(danger("imessage: failed delivering error reply"));
+        }
+      }
+    }
 
     if (!queuedFinal) {
       if (decision.isGroup && decision.historyKey) {

@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import { resolveContextTokensForModel } from "../agents/context.js";
 import { DEFAULT_CONTEXT_TOKENS, DEFAULT_MODEL, DEFAULT_PROVIDER } from "../agents/defaults.js";
+import { resolveAgentIdentity } from "../agents/identity.js";
 import { resolveModelAuthMode } from "../agents/model-auth.js";
 import {
   buildModelAliasIndex,
@@ -11,8 +12,6 @@ import { resolveSandboxRuntimeStatus } from "../agents/sandbox.js";
 import type { SkillCommandSpec } from "../agents/skills.js";
 import { derivePromptTokens, normalizeUsage, type UsageLike } from "../agents/usage.js";
 import { resolveChannelModelOverride } from "../channels/model-overrides.js";
-import { resolveIdentityName } from "../agents/identity.js";
-import { isCommandFlagEnabled } from "../config/commands.js";
 import type { OpenClawConfig } from "../config/config.js";
 import {
   resolveMainSessionKey,
@@ -164,6 +163,59 @@ function resolveRuntimeLabel(
   return `${runtime}/${sandboxMode}`;
 }
 
+/**
+ * Map model identifiers to user-friendly mode names for branded deployments.
+ * Keys are lowercase substrings matched against the model string.
+ */
+const MODE_NAME_MAP: { match: string; name: string; emoji: string }[] = [
+  { match: "kimi", name: "Fast", emoji: "🟢" },
+  { match: "sonnet", name: "Sharp", emoji: "🔵" },
+  { match: "opus", name: "Deep", emoji: "🟣" },
+  { match: "haiku", name: "Fast", emoji: "🟢" },
+  { match: "gpt-4o-mini", name: "Fast", emoji: "🟢" },
+  { match: "gpt-4o", name: "Sharp", emoji: "🔵" },
+  { match: "gpt-4", name: "Deep", emoji: "🟣" },
+  { match: "o1", name: "Deep", emoji: "🟣" },
+  { match: "o3", name: "Deep", emoji: "🟣" },
+];
+
+function resolveModeName(model: string): { name: string; emoji: string } | undefined {
+  const lower = model.toLowerCase();
+  for (const entry of MODE_NAME_MAP) {
+    if (lower.includes(entry.match)) {
+      return { name: entry.name, emoji: entry.emoji };
+    }
+  }
+  return undefined;
+}
+
+/** Format a YYYY.M.D version string as "Mon YYYY" (e.g. "2026.3.9" → "Mar 2026"). */
+const MONTH_NAMES = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+] as const;
+function formatVersionMonthYear(version: string): string {
+  const [year, month] = version.split(".");
+  if (!year || !month) {
+    return version;
+  }
+  const monthNum = parseInt(month, 10);
+  if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
+    return version;
+  }
+  return `${MONTH_NAMES[monthNum - 1]} ${year}`;
+}
+
 const formatTokens = (total: number | null | undefined, contextTokens: number | null) => {
   const ctx = contextTokens ?? null;
   if (total == null) {
@@ -185,7 +237,7 @@ const formatQueueDetails = (queue?: QueueStatus) => {
   if (!queue) {
     return "";
   }
-  const depth = typeof queue.depth === "number" ? `depth ${queue.depth}` : null;
+  const depth = typeof queue.depth === "number" && queue.depth > 0 ? `depth ${queue.depth}` : null;
   if (!queue.showDetails) {
     return depth ? ` (${depth})` : "";
   }
@@ -626,7 +678,17 @@ export function buildStatusMessage(args: StatusArgs): string {
       : undefined;
   const costLabel = showCost && hasUsage ? formatUsd(cost) : undefined;
 
-  const selectedAuthLabel = selectedAuthLabelValue ? ` · 🔑 ${selectedAuthLabelValue}` : "";
+  // Resolve configured identity (name/emoji) for branding overrides.
+  const resolvedAgentId =
+    args.agentId ?? (args.sessionKey ? resolveAgentIdFromSessionKey(args.sessionKey) : undefined);
+  const identityConfig =
+    args.config && resolvedAgentId ? resolveAgentIdentity(args.config, resolvedAgentId) : undefined;
+  const identityName = identityConfig?.name?.trim() || undefined;
+  const identityEmoji = identityConfig?.emoji?.trim() || undefined;
+
+  // Hide API key label when a branded identity is configured.
+  const selectedAuthLabel =
+    selectedAuthLabelValue && !identityName ? ` · 🔑 ${selectedAuthLabelValue}` : "";
   const channelModelNote = (() => {
     if (!args.config || !entry) {
       return undefined;
@@ -673,48 +735,86 @@ export function buildStatusMessage(args: StatusArgs): string {
         showFallbackAuth ? ` · 🔑 ${activeAuthLabelValue}` : ""
       } (${fallbackState.reason ?? "selected model unavailable"})`
     : null;
-  // EBFC AI branded status output (language audit items 1-8, PO-approved)
-  const nowDate = new Date(now);
-  const monthName = nowDate.toLocaleDateString("en-US", { month: "long" });
-  const year = nowDate.getFullYear();
-  const ebfcVersionLine = `🏗️ EBFC AI · ${monthName} ${year}`;
+  const commit = resolveCommitHash();
+  const versionLine = identityName
+    ? `${identityEmoji ? `${identityEmoji} ` : ""}${identityName} ${formatVersionMonthYear(VERSION)}`
+    : `🦞 OpenClaw ${VERSION}${commit ? ` (${commit})` : ""}`;
+  const usagePair = formatUsagePair(inputTokens, outputTokens);
+  const cacheLine = formatCacheLine(inputTokens, cacheRead, cacheWrite);
+  const costLine = costLabel ? `💵 Cost: ${costLabel}` : null;
+  const usageCostLine =
+    usagePair && costLine ? `${usagePair} · ${costLine}` : (usagePair ?? costLine);
+  const mediaLine = formatMediaUnderstandingLine(args.mediaDecisions);
+  const voiceLine = formatVoiceModeLine(args.config, args.sessionEntry);
 
-  const companionName =
-    args.config && args.agentId
-      ? (resolveIdentityName(args.config, args.agentId) ?? "EBFC AI")
-      : "EBFC AI";
-  const modeTier = resolveModeTier(activeModel);
-  const companionLine = `🐻 ${companionName} · ${modeTier} mode`;
+  // Branded output: clean, human-friendly format when identity is configured.
+  if (identityName) {
+    const mode = resolveModeName(activeModel);
+    const modeLabel = mode ? `${mode.emoji} ${mode.name} mode` : activeModelLabel;
+    const companionName = identityConfig?.name?.trim() || identityName;
+    const companionEmoji = identityConfig?.emoji?.trim() || identityEmoji || "🏗️";
 
-  const timeStr = nowDate.toLocaleDateString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
-  const timeStrTime = nowDate.toLocaleTimeString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  });
-  const ebfcTimeLine = `🕒 ${timeStr} — ${timeStrTime} (your time)`;
+    const pct =
+      contextTokens && totalTokens
+        ? Math.min(100, Math.round((totalTokens / contextTokens) * 100))
+        : null;
+    const pctLabel = pct !== null ? `${pct}% full` : "ready";
+    const roomLeft = pct !== null ? `${100 - pct}% room left` : "";
 
-  const contextPct =
-    contextTokens && totalTokens ? Math.round((totalTokens / contextTokens) * 100) : 0;
-  const pageStartedAgo =
-    typeof updatedAt === "number" ? formatTimeAgo(now - updatedAt) : "just now";
-  const notebookLine = `📓 Notebook page: ${contextPct}% full · Started ${pageStartedAgo}`;
+    const notebookLine = roomLeft
+      ? `📓 Notebook: ${pctLabel} · ${roomLeft}`
+      : `📓 Notebook: ${pctLabel}`;
 
-  const queueBackedUp = (args.queue?.depth ?? 0) > 0;
-  const statusLine =
-    contextPct >= 80
-      ? `⚠️ ${companionName}'s memory is getting full. Consider starting a fresh page soon.`
-      : queueBackedUp
-        ? "⏳ Finishing something up — be right with you."
-        : "All systems go. Ready when you are.";
+    const sessionUpdated =
+      typeof updatedAt === "number" ? formatTimeAgo(now - updatedAt) : "just now";
+    const pageLine = `📝 Page started: ${sessionUpdated}`;
 
-  return [ebfcVersionLine, "", companionLine, ebfcTimeLine, notebookLine, "", statusLine].join(
-    "\n",
-  );
+    // Status footer: readiness check
+    let statusFooter: string;
+    if (pct !== null && pct >= 85) {
+      statusFooter = `⚠️ Last few lines on this page. Let's do /fresh after this.`;
+    } else if (pct !== null && pct >= 75) {
+      statusFooter = `⚠️ Almost out of room. Consider /fresh soon.`;
+    } else if (pct !== null && pct >= 60) {
+      statusFooter = `📓 Notebook's getting full. Good time to /fresh when ready.`;
+    } else if (fallbackState.active) {
+      statusFooter = `⚙️ Switching gears — using ${modeLabel} right now.`;
+    } else {
+      statusFooter = "All systems go. Ready when you are.";
+    }
+
+    return [
+      versionLine,
+      "",
+      `${companionEmoji} ${companionName} · ${modeLabel}`,
+      args.timeLine,
+      `${notebookLine} · ${pageLine}`,
+      "",
+      statusFooter,
+    ]
+      .filter((line) => line != null)
+      .join("\n");
+  }
+
+  // Default (non-branded) output: full technical details.
+  return [
+    versionLine,
+    args.timeLine,
+    modelLine,
+    fallbackLine,
+    usageCostLine,
+    cacheLine,
+    `📚 ${contextLine}`,
+    mediaLine,
+    args.usageLine,
+    `🧵 ${sessionLine}`,
+    args.subagentsLine,
+    `⚙️ ${optionsLine}`,
+    voiceLine,
+    activationLine,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
 const CATEGORY_LABELS: Record<CommandCategory, string> = {
@@ -754,32 +854,33 @@ function groupCommandsByCategory(
 }
 
 export function buildHelpMessage(cfg?: OpenClawConfig): string {
-  const lines = ["ℹ️ Help", ""];
+  // Resolve identity for branded help header
+  const identityConfig = cfg ? resolveAgentIdentity(cfg, "main") : undefined;
+  const companionName = identityConfig?.name?.trim();
+  const companionEmoji = identityConfig?.emoji?.trim() || "🏗️";
+  const header = companionName
+    ? `${companionEmoji} What can I help with?`
+    : "ℹ️ What can I help with?";
 
-  lines.push("Session");
-  lines.push("  /new  |  /reset  |  /compact [instructions]  |  /stop");
+  const lines = [header, ""];
+
+  lines.push("Getting started");
+  lines.push("  /fresh — Turn to a fresh page");
+  lines.push("  /stop — Pause the conversation");
   lines.push("");
 
-  const optionParts = ["/think <level>", "/model <id>", "/verbose on|off"];
-  if (isCommandFlagEnabled(cfg, "config")) {
-    optionParts.push("/config");
-  }
-  if (isCommandFlagEnabled(cfg, "debug")) {
-    optionParts.push("/debug");
-  }
-  lines.push("Options");
-  lines.push(`  ${optionParts.join("  |  ")}`);
+  lines.push("How I'm working");
+  lines.push("  /status — Quick check-in");
+  lines.push("  /mode — Switch between Fast, Sharp, and Deep");
+  lines.push("  /think on|off — Toggle extended thinking");
   lines.push("");
 
-  lines.push("Status");
-  lines.push("  /status  |  /whoami  |  /context");
-  lines.push("");
-
-  lines.push("Skills");
-  lines.push("  /skill <name> [input]");
+  lines.push("About you");
+  lines.push("  /whoami — See your profile");
+  lines.push("  /notebook — Check how much room we have");
 
   lines.push("");
-  lines.push("More: /commands for full list");
+  lines.push("Need more? Just ask me — I'm better at plain English than slash commands. 🏗️");
 
   return lines.join("\n");
 }

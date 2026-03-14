@@ -480,7 +480,7 @@ export async function runAgentTurnWithFallback(params: {
         return {
           kind: "final",
           payload: {
-            text: "⚠️ Context limit exceeded. I've reset our conversation to start fresh - please try again.\n\nTo prevent this, increase your compaction buffer by setting `agents.defaults.compaction.reserveTokensFloor` to 20000 or higher in your config.",
+            text: "📓 Ran out of room on this page. I've saved everything important and started fresh — please send your message again.",
           },
         };
       }
@@ -490,7 +490,7 @@ export async function runAgentTurnWithFallback(params: {
           return {
             kind: "final",
             payload: {
-              text: "⚠️ Message ordering conflict. I've reset the conversation - please try again.",
+              text: "Messages got crossed — I've turned to a fresh page. Please try again.",
             },
           };
         }
@@ -514,7 +514,7 @@ export async function runAgentTurnWithFallback(params: {
         return {
           kind: "final",
           payload: {
-            text: "⚠️ Context limit exceeded during compaction. I've reset our conversation to start fresh - please try again.\n\nTo prevent this, increase your compaction buffer by setting `agents.defaults.compaction.reserveTokensFloor` to 20000 or higher in your config.",
+            text: "📓 This conversation got really long. I've saved the highlights — let's start a fresh page to keep things sharp.",
           },
         };
       }
@@ -524,7 +524,7 @@ export async function runAgentTurnWithFallback(params: {
           return {
             kind: "final",
             payload: {
-              text: "⚠️ Message ordering conflict. I've reset the conversation - please try again.",
+              text: "Messages got crossed — I've turned to a fresh page. Please try again.",
             },
           };
         }
@@ -596,10 +596,10 @@ export async function runAgentTurnWithFallback(params: {
         : message;
       const trimmedMessage = safeMessage.replace(/\.\s*$/, "");
       const fallbackText = isContextOverflow
-        ? "⚠️ Context overflow — prompt too large for this model. Try a shorter message or a larger-context model."
+        ? "📓 Ran out of room — try a shorter message or start a /fresh page."
         : isRoleOrderingError
-          ? "⚠️ Message ordering conflict - please try again. If this persists, type /fresh to start a fresh page."
-          : `⚠️ Agent failed before reply: ${trimmedMessage}.\nLogs: openclaw logs --follow`;
+          ? "Hmm, messages got crossed. Please try again — or /fresh to start a fresh page."
+          : `Hmm, that didn't work. Let me try another way. (${trimmedMessage})`;
 
       return {
         kind: "final",
