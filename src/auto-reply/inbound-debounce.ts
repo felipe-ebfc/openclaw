@@ -61,12 +61,12 @@ export function createInboundDebouncer<T>(params: InboundDebounceCreateParams<T>
   };
 
   const flushBuffer = async (key: string, buffer: DebounceBuffer<T>) => {
-    buffers.delete(key);
     if (buffer.timeout) {
       clearTimeout(buffer.timeout);
       buffer.timeout = null;
     }
     if (buffer.items.length === 0) {
+      buffers.delete(key);
       return;
     }
     try {
@@ -74,6 +74,10 @@ export function createInboundDebouncer<T>(params: InboundDebounceCreateParams<T>
     } catch (err) {
       params.onError?.(err, buffer.items);
     }
+    // Delete the buffer only after processing completes (success or error).
+    // Previously the buffer was deleted before awaiting onFlush, which meant
+    // failed messages could not be recovered or retried.
+    buffers.delete(key);
   };
 
   const flushKey = async (key: string) => {
