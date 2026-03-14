@@ -150,6 +150,9 @@ export function deriveGroupSessionPatch(params: {
   return patch;
 }
 
+/** System providers whose context should not overwrite a session's origin. */
+const SYSTEM_PROVIDERS = new Set(["heartbeat", "cron-event", "exec-event"]);
+
 export function deriveSessionMetaPatch(params: {
   ctx: MsgContext;
   sessionKey: string;
@@ -157,7 +160,12 @@ export function deriveSessionMetaPatch(params: {
   groupResolution?: GroupKeyResolution | null;
 }): Partial<SessionEntry> | null {
   const groupPatch = deriveGroupSessionPatch(params);
-  const origin = deriveSessionOrigin(params.ctx);
+
+  // System providers (heartbeat, cron, exec-event) must not overwrite the
+  // session's origin — otherwise a heartbeat turn stomps the label/from/to
+  // fields and the webchat UI loses the "Main Session" display name.
+  const isSystem = SYSTEM_PROVIDERS.has(params.ctx.Provider ?? "");
+  const origin = isSystem ? undefined : deriveSessionOrigin(params.ctx);
   if (!groupPatch && !origin) {
     return null;
   }

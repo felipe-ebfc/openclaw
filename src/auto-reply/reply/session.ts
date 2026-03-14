@@ -436,7 +436,10 @@ export async function initSessionState(params: {
     responseUsage: baseEntry?.responseUsage,
     modelOverride: persistedModelOverride ?? baseEntry?.modelOverride,
     providerOverride: persistedProviderOverride ?? baseEntry?.providerOverride,
-    label: persistedLabel ?? baseEntry?.label,
+    label:
+      persistedLabel ??
+      baseEntry?.label ??
+      (sessionKey.endsWith(":main") ? "Main Session" : undefined),
     sendPolicy: baseEntry?.sendPolicy,
     queueMode: baseEntry?.queueMode,
     queueDebounceMs: baseEntry?.queueDebounceMs,
