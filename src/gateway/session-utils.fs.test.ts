@@ -553,6 +553,57 @@ describe("readSessionMessages", () => {
       expect(out).toEqual([testCase.message]);
     }
   });
+
+  test("returns only active branch when session has concurrent branches", () => {
+    const sessionId = "test-session-branching";
+    const transcriptPath = path.join(tmpDir, `${sessionId}.jsonl`);
+    // Simulate: root → heartbeat branch (msg-2 → msg-3) and user branch (msg-4 → msg-5).
+    // The user branch (msg-5) is the leaf since it's the last entry in the file.
+    const lines = [
+      JSON.stringify({ type: "session", version: 3, id: sessionId }),
+      JSON.stringify({
+        type: "message",
+        id: "msg-1",
+        parentId: undefined,
+        message: { role: "assistant", content: "Welcome" },
+      }),
+      // Heartbeat branch
+      JSON.stringify({
+        type: "message",
+        id: "msg-2",
+        parentId: "msg-1",
+        message: { role: "user", content: "HEARTBEAT" },
+      }),
+      JSON.stringify({
+        type: "message",
+        id: "msg-3",
+        parentId: "msg-2",
+        message: { role: "assistant", content: "HEARTBEAT_OK" },
+      }),
+      // User branch (concurrent with heartbeat)
+      JSON.stringify({
+        type: "message",
+        id: "msg-4",
+        parentId: "msg-1",
+        message: { role: "user", content: "Run solo, I will rest for an hour." },
+      }),
+      JSON.stringify({
+        type: "message",
+        id: "msg-5",
+        parentId: "msg-4",
+        message: { role: "assistant", content: "Got it, resting mode." },
+      }),
+    ];
+    fs.writeFileSync(transcriptPath, lines.join("\n"), "utf-8");
+
+    const out = readSessionMessages(sessionId, storePath);
+    // Should only return the active branch: msg-1 → msg-4 → msg-5
+    // Not the heartbeat branch: msg-2, msg-3
+    expect(out).toHaveLength(3);
+    expect(out[0]).toEqual({ role: "assistant", content: "Welcome" });
+    expect(out[1]).toEqual({ role: "user", content: "Run solo, I will rest for an hour." });
+    expect(out[2]).toEqual({ role: "assistant", content: "Got it, resting mode." });
+  });
 });
 
 describe("readSessionPreviewItemsFromTranscript", () => {
