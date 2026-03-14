@@ -675,7 +675,7 @@ export async function runReplyAgent(params: {
     }
 
     if (autoCompactionCompleted) {
-      const count = await incrementRunCompactionCount({
+      const _count = await incrementRunCompactionCount({
         sessionEntry: activeSessionEntry,
         sessionStore: activeSessionStore,
         sessionKey,
@@ -699,8 +699,7 @@ export async function runReplyAgent(params: {
       }
 
       if (verboseEnabled) {
-        const suffix = typeof count === "number" ? ` (count ${count})` : "";
-        verboseNotices.push({ text: `🧹 Auto-compaction complete${suffix}.` });
+        verboseNotices.push({ text: `📓 Notes tidied up — we're good to keep going.` });
       }
     }
     if (fallbackNotices.length > 0) {
@@ -725,13 +724,13 @@ export async function runReplyAgent(params: {
         let freshPageWarning: string | null = null;
         if (fillRatio >= 0.85) {
           freshPageWarning =
-            "We need a fresh page now. Let me save our current state — type /fresh and we will keep going.";
+            "📓 Last few lines on this page. Saving everything important now — let's do /fresh after this.";
         } else if (fillRatio >= 0.75) {
           freshPageWarning =
-            "This page is almost full. I recommend a fresh page soon so we do not lose any context. Just type /fresh.";
+            "📓 Almost out of room on this page. Let's save our notes and start fresh — /fresh";
         } else if (fillRatio >= 0.6) {
           freshPageWarning =
-            "Our page is getting full. When you are ready, say fresh page and we will start a clean one — nothing is lost.";
+            "📓 Notebook's getting full. Good time to wrap up this topic and turn to a fresh page.";
         }
         if (freshPageWarning) {
           finalPayloads = appendUsageLine(finalPayloads, freshPageWarning);
