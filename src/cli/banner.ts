@@ -1,3 +1,4 @@
+import { resolveAgentIdentity } from "../agents/identity.js";
 import { loadConfig } from "../config/config.js";
 import { resolveCommitHash } from "../infra/git-commit.js";
 import { visibleWidth } from "../terminal/ansi.js";
@@ -61,8 +62,21 @@ export function formatCliBannerLine(version: string, options: BannerOptions = {}
   const commitLabel = commit ?? "unknown";
   const tagline = pickTagline({ ...options, mode: resolveTaglineMode(options) });
   const rich = options.richTty ?? isRich();
-  const title = "🦞 OpenClaw";
-  const prefix = "🦞 ";
+
+  // Use identity-aware branding when configured.
+  let title = "🦞 OpenClaw";
+  let prefix = "🦞 ";
+  try {
+    const cfg = loadConfig();
+    const identity = resolveAgentIdentity(cfg, "main");
+    if (identity?.name?.trim()) {
+      const emoji = identity.emoji?.trim() || "🏗️";
+      title = `${emoji} ${identity.name.trim()}`;
+      prefix = `${emoji} `;
+    }
+  } catch {
+    // Fall back to default branding when config is missing.
+  }
   const columns = options.columns ?? process.stdout.columns ?? 120;
   const plainBaseLine = `${title} ${version} (${commitLabel})`;
   const plainFullLine = tagline ? `${plainBaseLine} — ${tagline}` : plainBaseLine;
@@ -107,6 +121,18 @@ const LOBSTER_ASCII = [
 ];
 
 export function formatCliBannerArt(options: BannerOptions = {}): string {
+  // When a custom identity is configured, skip the OpenClaw lobster ASCII art.
+  try {
+    const cfg = loadConfig();
+    const identity = resolveAgentIdentity(cfg, "main");
+    if (identity?.name?.trim()) {
+      const emoji = identity.emoji?.trim() || "🏗️";
+      return `\n  ${emoji} ${identity.name.trim()} ${emoji}\n`;
+    }
+  } catch {
+    // Fall back to default art.
+  }
+
   const rich = options.richTty ?? isRich();
   if (!rich) {
     return LOBSTER_ASCII.join("\n");
