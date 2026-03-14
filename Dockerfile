@@ -91,6 +91,12 @@ RUN if [ -n "$OPENCLAW_INSTALL_DOCKER_CLI" ]; then \
 
 USER node
 COPY --chown=node:node . .
+# Install extension dependencies (not covered by the main pnpm install).
+RUN for ext in /app/extensions/*/package.json; do \
+      if [ -f "$ext" ]; then \
+        cd "$(dirname "$ext")" && npm install --omit=dev 2>/dev/null; \
+      fi; \
+    done
 # Normalize copied plugin/agent paths so plugin safety checks do not reject
 # world-writable directories inherited from source file modes.
 RUN for dir in /app/extensions /app/.agent /app/.agents; do \
