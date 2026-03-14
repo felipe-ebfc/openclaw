@@ -141,14 +141,14 @@ function buildChatCommands(): ChatCommandDefinition[] {
       key: "commands",
       nativeName: "commands",
       description: "List all slash commands.",
-      textAlias: "/commands",
+      textAliases: ["/commands", "/menu"],
       category: "status",
     }),
     defineChatCommand({
       key: "skill",
       nativeName: "skill",
-      description: "Run a skill by name.",
-      textAlias: "/skill",
+      description: "Run a tool by name.",
+      textAlias: "/tool",
       category: "tools",
       args: [
         {
@@ -191,8 +191,8 @@ function buildChatCommands(): ChatCommandDefinition[] {
     defineChatCommand({
       key: "context",
       nativeName: "context",
-      description: "Explain how context is built and used.",
-      textAlias: "/context",
+      description: "Check how much room we have.",
+      textAlias: "/notebook",
       acceptsArgs: true,
       category: "status",
     }),
@@ -498,7 +498,7 @@ function buildChatCommands(): ChatCommandDefinition[] {
     defineChatCommand({
       key: "restart",
       nativeName: "restart",
-      description: "Restart OpenClaw.",
+      description: "Restart the system.",
       textAlias: "/restart",
       category: "tools",
     }),
@@ -537,7 +537,7 @@ function buildChatCommands(): ChatCommandDefinition[] {
     defineChatCommand({
       key: "reset",
       nativeName: "reset",
-      description: "Reset the current session.",
+      description: "Turn to a fresh page (same as /fresh).",
       textAlias: "/reset",
       acceptsArgs: true,
       category: "session",
@@ -545,21 +545,21 @@ function buildChatCommands(): ChatCommandDefinition[] {
     defineChatCommand({
       key: "new",
       nativeName: "new",
-      description: "Start a fresh page (new session). Also: /fresh.",
-      textAlias: "/new",
+      description: "Turn to a fresh page.",
+      textAlias: "/fresh",
       acceptsArgs: true,
       category: "session",
     }),
     defineChatCommand({
       key: "compact",
       nativeName: "compact",
-      description: "Compact the session context.",
-      textAlias: "/compact",
+      description: "Save memory, keep the key points.",
+      textAlias: "/summarize",
       category: "session",
       args: [
         {
           name: "instructions",
-          description: "Extra compaction instructions",
+          description: "What to keep",
           type: "string",
           captureRemaining: true,
         },
@@ -568,7 +568,7 @@ function buildChatCommands(): ChatCommandDefinition[] {
     defineChatCommand({
       key: "think",
       nativeName: "think",
-      description: "Set thinking level.",
+      description: "Toggle extended thinking.",
       textAlias: "/think",
       category: "options",
       args: [
@@ -666,13 +666,13 @@ function buildChatCommands(): ChatCommandDefinition[] {
     defineChatCommand({
       key: "model",
       nativeName: "model",
-      description: "Show or set the model.",
-      textAlias: "/model",
+      description: "Switch between Fast, Sharp, and Deep modes.",
+      textAlias: "/mode",
       category: "options",
       args: [
         {
           name: "model",
-          description: "Model id (provider/model or id)",
+          description: "Mode (fast, sharp, deep) or model id",
           type: "string",
         },
       ],
@@ -745,7 +745,11 @@ function buildChatCommands(): ChatCommandDefinition[] {
   registerAlias(commands, "reasoning", "/reason");
   registerAlias(commands, "elevated", "/elev");
   registerAlias(commands, "steer", "/tell");
-  registerAlias(commands, "new", "/fresh");
+  registerAlias(commands, "new", "/new");
+  registerAlias(commands, "compact", "/compact");
+  registerAlias(commands, "model", "/model");
+  registerAlias(commands, "context", "/context");
+  registerAlias(commands, "skill", "/skill");
 
   assertCommandRegistry(commands);
   return commands;
