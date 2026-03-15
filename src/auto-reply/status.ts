@@ -778,7 +778,7 @@ export function buildStatusMessage(args: StatusArgs): string {
     } else if (pct !== null && pct >= 60) {
       statusFooter = `📓 Notebook's getting full. Good time to /fresh when ready.`;
     } else if (fallbackState.active) {
-      statusFooter = `⚙️ Switching gears — using ${modeLabel} right now.`;
+      statusFooter = `⚙️ Using backup model (${modeLabel}) right now.`;
     } else {
       statusFooter = "All systems go. Ready when you are.";
     }
