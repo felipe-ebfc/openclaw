@@ -374,26 +374,180 @@ async function restoreHeartbeatUpdatedAt(params: {
 }
 
 /**
- * Prune heartbeat transcript entries by truncating the file back to a previous size.
- * This removes the user+assistant turns that were written during a HEARTBEAT_OK run,
- * preventing context pollution from zero-information exchanges.
+ * Walk a parentId chain through removed entries to find the nearest surviving ancestor.
+ * Returns the first parentId that is NOT in the removed set, or null if the chain
+ * terminates without finding one.
  */
-async function pruneHeartbeatTranscript(params: {
+function resolveReparentId(
+  parentId: string,
+  removedIds: Set<string>,
+  parentMap: Map<string, string | null>,
+): string | null {
+  let current: string | null = parentId;
+  const visited = new Set<string>();
+  while (current && removedIds.has(current)) {
+    if (visited.has(current)) {
+      break; // cycle guard
+    }
+    visited.add(current);
+    current = parentMap.get(current) ?? null;
+  }
+  return current;
+}
+
+/** Delivery mirrors are written by appendAssistantMessageToSessionTranscript. */
+const DELIVERY_MIRROR_MODEL = "delivery-mirror";
+
+/**
+ * Classify a parsed JSONL entry as heartbeat or concurrent.
+ *
+ * Heartbeat entries are produced by the single agent invocation inside
+ * getReplyFromConfig: one user prompt, plus assistant/toolResult turns from
+ * the model. Concurrent entries (delivery mirrors, external chat messages)
+ * are identified by model or by being a second user message.
+ */
+function isHeartbeatEntry(
+  parsed: Record<string, unknown>,
+  heartbeatUserFound: { value: boolean },
+): boolean {
+  if (parsed.type !== "message") {
+    // Non-message entries (model_change, thinking_level_change, etc.)
+    // produced during the heartbeat run. Safe to remove.
+    return true;
+  }
+  const msg = parsed.message as { role?: string; model?: string } | undefined;
+  if (!msg?.role) {
+    return true;
+  }
+  // First user message = the heartbeat prompt
+  if (msg.role === "user" && !heartbeatUserFound.value) {
+    heartbeatUserFound.value = true;
+    return true;
+  }
+  // Second+ user message = concurrent chat message
+  if (msg.role === "user") {
+    return false;
+  }
+  // Delivery mirrors are written by a separate process (concurrent)
+  if (msg.model === DELIVERY_MIRROR_MODEL) {
+    return false;
+  }
+  // Assistant and toolResult entries from the agent run
+  return true;
+}
+
+/**
+ * Prune heartbeat transcript entries by selectively removing only the heartbeat's
+ * own JSONL entries from the transcript file, preserving any concurrent messages
+ * (e.g., webchat delivery mirrors) that were appended during the heartbeat window.
+ *
+ * Previous approach used blind byte-offset truncation which destroyed concurrent
+ * messages written between captureTranscriptState and pruneHeartbeatTranscript.
+ *
+ * Identification strategy: the heartbeat run produces one user message (the prompt)
+ * followed by assistant/toolResult turns. Concurrent entries are delivery mirrors
+ * (model "delivery-mirror") or additional user messages from external chat. Entries
+ * are classified by their content properties, not by tree ancestry, because concurrent
+ * entries may also have parentId pointing at heartbeat entries (they see the heartbeat
+ * entries as the current leaf when they open the file).
+ */
+async function pruneHeartbeatTranscript(_params: {
   transcriptPath?: string;
   preHeartbeatSize?: number;
 }) {
-  const { transcriptPath, preHeartbeatSize } = params;
+  // DISABLED: entry classification still misidentifies concurrent assistant replies
+  // as heartbeat entries (any assistant turn after the heartbeat prompt is pruned,
+  // including replies to real user messages sent during the heartbeat window).
+  // Trade-off: heartbeat turns accumulate in transcript until proper fix lands.
+  return;
+  const { transcriptPath, preHeartbeatSize } = _params;
   if (!transcriptPath || typeof preHeartbeatSize !== "number" || preHeartbeatSize < 0) {
     return;
   }
   try {
-    const stat = await fs.stat(transcriptPath);
-    // Only truncate if the file has grown during the heartbeat run
-    if (stat.size > preHeartbeatSize) {
-      await fs.truncate(transcriptPath, preHeartbeatSize);
+    const buf = await fs.readFile(transcriptPath);
+    if (buf.length <= preHeartbeatSize) {
+      return; // File hasn't grown
     }
+
+    // Read only the new bytes appended during the heartbeat window
+    const newBytes = buf.subarray(preHeartbeatSize);
+    const newText = newBytes.toString("utf-8");
+    const newLines = newText.split("\n").filter((line) => line.trim());
+    if (newLines.length === 0) {
+      return;
+    }
+
+    // Parse each new line as JSONL
+    type ParsedLine = {
+      raw: string;
+      parsed: Record<string, unknown> | null;
+    };
+    const entries: ParsedLine[] = newLines.map((line) => {
+      try {
+        return { raw: line, parsed: JSON.parse(line) as Record<string, unknown> };
+      } catch {
+        return { raw: line, parsed: null };
+      }
+    });
+
+    // Classify each entry as heartbeat or concurrent using content-based heuristics.
+    // Build a set of removed IDs and a parentId map for reparenting.
+    const removedIds = new Set<string>();
+    const parentMap = new Map<string, string | null>();
+    const heartbeatUserFound = { value: false };
+
+    for (const entry of entries) {
+      if (!entry.parsed) {
+        continue; // Unparseable lines are kept (safe default)
+      }
+      const id = entry.parsed.id as string | undefined;
+      if (!id) {
+        continue;
+      }
+      if (isHeartbeatEntry(entry.parsed, heartbeatUserFound)) {
+        removedIds.add(id);
+        parentMap.set(id, (entry.parsed.parentId as string | null) ?? null);
+      }
+    }
+
+    // Separate heartbeat entries from concurrent entries
+    const survivors = entries.filter((entry) => {
+      if (!entry.parsed || typeof entry.parsed.id !== "string") {
+        return true; // Keep unparseable lines
+      }
+      return !removedIds.has(entry.parsed.id);
+    });
+
+    if (survivors.length === 0) {
+      // All new entries are heartbeat entries — fast-path truncation
+      await fs.truncate(transcriptPath, preHeartbeatSize);
+      return;
+    }
+
+    // Concurrent entries exist. Reparent any survivor whose parentId points at
+    // a removed heartbeat entry so the JSONL tree stays valid. Walk the removed
+    // chain to find the nearest surviving ancestor.
+    const fixedLines = survivors.map((entry) => {
+      if (!entry.parsed) {
+        return entry.raw;
+      }
+      const parentId = entry.parsed.parentId as string | undefined;
+      if (parentId && removedIds.has(parentId)) {
+        const newParent = resolveReparentId(parentId, removedIds, parentMap);
+        return JSON.stringify({ ...entry.parsed, parentId: newParent });
+      }
+      return entry.raw;
+    });
+
+    // Rewrite: pre-heartbeat bytes + surviving lines
+    const preHeartbeatBytes = buf.subarray(0, preHeartbeatSize);
+    const tailText = fixedLines.join("\n") + "\n";
+    const tailBytes = Buffer.from(tailText, "utf-8");
+    const result = Buffer.concat([preHeartbeatBytes, tailBytes]);
+    await fs.writeFile(transcriptPath, result);
   } catch {
-    // File may not exist or may have been removed - ignore errors
+    // File may not exist or may have been removed — ignore errors
   }
 }
 
