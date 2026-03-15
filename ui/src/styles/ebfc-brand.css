@@ -1,0 +1,378 @@
+/*
+ * EBFC AI — Brand Layer
+ * Baked directly into the fork. Overrides base.css variables.
+ *
+ * Brand colors (Sarah's brand kit):
+ *   Navy Blue: #004AAD (primary)
+ *   Blue:      #2563EB (accent)
+ *   Background: #0D0D0F
+ *   Card:       #141416
+ *
+ * Companion emoji is set via agents.defaults.identity.avatar in gateway config.
+ * The CSS custom property --companion-emoji provides the default fallback.
+ */
+
+/* ─── Companion emoji fallback ─── */
+:root {
+  --companion-emoji: "🦞";
+}
+
+/* ─── Dark Theme (default) ─── */
+:root {
+  /* Backgrounds */
+  --bg: #0D0D0F;
+  --bg-accent: #101012;
+  --bg-elevated: #141416;
+  --bg-hover: #1A1A1E;
+  --bg-muted: #1A1A1E;
+
+  /* Cards */
+  --card: #141416;
+  --card-foreground: #f4f4f5;
+  --card-highlight: rgba(255, 255, 255, .03);
+  --popover: #141416;
+  --popover-foreground: #f4f4f5;
+
+  /* Panels / Chrome */
+  --panel: #0D0D0F;
+  --panel-strong: #141416;
+  --panel-hover: #1A1A1E;
+  --chrome: rgba(13, 13, 15, .95);
+  --chrome-strong: rgba(13, 13, 15, .98);
+
+  /* Text */
+  --text: #e4e4e7;
+  --text-strong: #ffffff;
+  --chat-text: #e4e4e7;
+  --muted: #888888;
+  --muted-strong: #555555;
+  --muted-foreground: #888888;
+
+  /* Borders */
+  --border: rgba(0, 74, 173, 0.2);
+  --border-strong: rgba(0, 74, 173, 0.35);
+  --border-hover: rgba(37, 99, 235, 0.3);
+  --input: rgba(0, 74, 173, 0.2);
+
+  /* Accent — Blue */
+  --ring: #2563EB;
+  --accent: #2563EB;
+  --accent-hover: #3B82F6;
+  --accent-muted: #2563EB;
+  --accent-subtle: rgba(37, 99, 235, 0.15);
+  --accent-foreground: #ffffff;
+  --accent-glow: rgba(37, 99, 235, 0.25);
+
+  /* Primary — Blue */
+  --primary: #2563EB;
+  --primary-foreground: #ffffff;
+
+  /* Secondary */
+  --secondary: #141416;
+  --secondary-foreground: #f4f4f5;
+
+  /* Accent 2 — Navy Blue */
+  --accent-2: #004AAD;
+  --accent-2-muted: rgba(0, 74, 173, .7);
+  --accent-2-subtle: rgba(0, 74, 173, .15);
+
+  /* Status colors */
+  --ok: #22c55e;
+  --ok-muted: rgba(34, 197, 94, .75);
+  --ok-subtle: rgba(34, 197, 94, .12);
+  --warn: #2563EB;
+  --warn-muted: rgba(37, 99, 235, .75);
+  --warn-subtle: rgba(37, 99, 235, .12);
+
+  /* Focus */
+  --focus: rgba(37, 99, 235, .25);
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--ring);
+  --focus-glow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ring), 0 0 20px var(--accent-glow);
+
+  /* Grid */
+  --grid-line: rgba(0, 74, 173, 0.06);
+}
+
+/* ─── Light Theme ─── */
+:root[data-theme="light"] {
+  /* Backgrounds */
+  --bg: #fafafa;
+  --bg-accent: #f5f5f5;
+  --bg-elevated: #ffffff;
+  --bg-hover: #f0f0f0;
+  --bg-muted: #f0f0f0;
+
+  /* Cards */
+  --card: #ffffff;
+  --card-foreground: #18181b;
+  --card-highlight: rgba(0, 0, 0, .02);
+  --popover: #ffffff;
+  --popover-foreground: #18181b;
+
+  /* Panels / Chrome */
+  --panel: #fafafa;
+  --panel-strong: #ffffff;
+  --panel-hover: #f0f0f0;
+  --chrome: rgba(250, 250, 250, .95);
+  --chrome-strong: rgba(250, 250, 250, .98);
+
+  /* Text */
+  --text: #3f3f46;
+  --text-strong: #18181b;
+  --chat-text: #3f3f46;
+  --muted: #71717a;
+  --muted-strong: #a1a1aa;
+  --muted-foreground: #71717a;
+
+  /* Borders */
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --border-hover: rgba(37, 99, 235, 0.3);
+  --input: #e4e4e7;
+
+  /* Accent — Blue (darker for light bg readability) */
+  --ring: #1D4ED8;
+  --accent: #1D4ED8;
+  --accent-hover: #2563EB;
+  --accent-muted: #1D4ED8;
+  --accent-subtle: rgba(37, 99, 235, 0.1);
+  --accent-foreground: #ffffff;
+  --accent-glow: rgba(37, 99, 235, 0.15);
+
+  /* Primary — Blue */
+  --primary: #1D4ED8;
+  --primary-foreground: #ffffff;
+
+  /* Secondary */
+  --secondary: #f5f5f5;
+  --secondary-foreground: #18181b;
+
+  /* Accent 2 — Navy Blue */
+  --accent-2: #004AAD;
+  --accent-2-muted: rgba(0, 74, 173, .7);
+  --accent-2-subtle: rgba(0, 74, 173, .08);
+
+  /* Status colors */
+  --ok: #16a34a;
+  --ok-muted: rgba(22, 163, 74, .75);
+  --ok-subtle: rgba(22, 163, 74, .08);
+  --warn: #1D4ED8;
+  --warn-muted: rgba(29, 78, 216, .75);
+  --warn-subtle: rgba(29, 78, 216, .08);
+
+  /* Focus */
+  --focus: rgba(29, 78, 216, .15);
+  --focus-ring: 0 0 0 2px var(--bg), 0 0 0 4px var(--ring);
+  --focus-glow: 0 0 0 2px var(--bg), 0 0 0 4px var(--ring), 0 0 20px var(--accent-glow);
+
+  /* Grid */
+  --grid-line: rgba(0, 74, 173, 0.04);
+}
+
+/* ─── Subtle background glow ─── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse 60% 40% at 50% -5%, rgba(0, 74, 173, 0.08) 0%, transparent 65%);
+}
+
+:root[data-theme="light"] body::before {
+  background: radial-gradient(ellipse 60% 40% at 50% -5%, rgba(0, 74, 173, 0.04) 0%, transparent 65%);
+}
+
+/* ─── Brand header ─── */
+/* brand-title and brand-sub are already set to "EBFC AI" / "AI COMPANION" in app-render.ts */
+.brand-sub {
+  display: none !important;
+}
+
+/* ─── Send button — blue ─── */
+.btn.primary {
+  border-color: #2563EB;
+  background: #2563EB;
+  color: #ffffff;
+}
+
+.btn.primary:hover {
+  background: #3B82F6;
+  border-color: #3B82F6;
+  box-shadow: var(--shadow-md), 0 0 20px rgba(37, 99, 235, 0.25);
+}
+
+:root[data-theme="light"] .btn.primary {
+  background: #1D4ED8;
+  border-color: #1D4ED8;
+  color: #ffffff;
+}
+
+:root[data-theme="light"] .btn.primary:hover {
+  background: #2563EB;
+  border-color: #2563EB;
+}
+
+/* ─── Status dot — blue glow ─── */
+.statusDot.ok {
+  background: #2563EB;
+  box-shadow: 0 0 8px rgba(37, 99, 235, 0.5);
+}
+
+/* ─── Nav active — blue ─── */
+.nav-item.active {
+  color: var(--text-strong);
+  background: rgba(37, 99, 235, 0.1);
+}
+
+.nav-item.active .nav-item__icon {
+  color: #2563EB;
+}
+
+:root[data-theme="light"] .nav-item.active {
+  background: rgba(29, 78, 216, 0.08);
+}
+
+/* ─── Streaming pulse — blue ─── */
+@keyframes pulsing-border {
+  0%, 100% { border-color: var(--border); }
+  50% { border-color: #2563EB; }
+}
+
+@keyframes chatStreamPulse {
+  0%, 100% { border-color: var(--border); }
+  50% { border-color: #2563EB; }
+}
+
+/* ─── UI Cleanup: AEC-focused single-pane view ─── */
+
+/* Nav: only show Chat tab — hide all other nav items */
+a.nav-item:not([href="/chat"]) {
+  display: none !important;
+}
+
+button.nav-label {
+  display: none !important;
+}
+
+.nav-collapse-toggle {
+  display: none !important;
+}
+
+a.nav-item--external {
+  display: none !important;
+}
+
+/* Header: hide version + health pills; keep theme toggle */
+.topbar-status .pill {
+  display: none !important;
+}
+
+/* Chat page: hide "Chat" title + "Direct gateway..." subtitle */
+.page-title {
+  display: none !important;
+}
+
+.page-sub {
+  display: none !important;
+}
+
+/* Session dropdown + separator */
+.chat-controls select {
+  display: none !important;
+}
+
+.chat-controls .separator {
+  display: none !important;
+}
+
+.chat-controls__session {
+  display: none !important;
+}
+
+.chat-controls__separator {
+  display: none !important;
+}
+
+/* Chat toolbar: hide dev controls */
+button[title="Refresh chat data"] {
+  display: none !important;
+}
+
+button[title*="thinking"] {
+  display: none !important;
+}
+
+button[title*="focus"] {
+  display: none !important;
+}
+
+button[title*="cron"] {
+  display: none !important;
+}
+
+/* ─── Chat Layout: modern ChatGPT-style ─── */
+
+/* User messages: no avatar, right-aligned, navy bubble */
+.chat-group.user .chat-avatar {
+  display: none !important;
+}
+
+.chat-group.user .chat-sender-name {
+  display: none !important;
+}
+
+.chat-group.user .chat-group-messages {
+  max-width: min(700px, 85%);
+}
+
+.chat-group.user .chat-bubble,
+.chat-line.user .chat-bubble {
+  background: rgba(0, 74, 173, 0.15) !important;
+  border-color: rgba(0, 74, 173, 0.25) !important;
+}
+
+.chat-group.user .chat-bubble:hover,
+.chat-line.user .chat-bubble:hover {
+  background: rgba(0, 74, 173, 0.22) !important;
+}
+
+:root[data-theme="light"] .chat-group.user .chat-bubble,
+:root[data-theme="light"] .chat-line.user .chat-bubble {
+  background: rgba(0, 74, 173, 0.08) !important;
+  border-color: rgba(0, 74, 173, 0.15) !important;
+}
+
+:root[data-theme="light"] .chat-group.user .chat-bubble:hover,
+:root[data-theme="light"] .chat-line.user .chat-bubble:hover {
+  background: rgba(0, 74, 173, 0.12) !important;
+}
+
+/* Assistant messages: emoji avatar from config (agents.defaults.identity.avatar).
+ * --companion-emoji is the CSS fallback; the actual emoji is rendered by Lit from config. */
+.chat-group.assistant .chat-avatar {
+  background: transparent !important;
+  border: none !important;
+  font-size: 22px;
+  line-height: 40px;
+}
+
+.chat-group.assistant .chat-group-messages {
+  max-width: min(700px, 85%);
+}
+
+/* ─── Welcome overlay: EBFC logo ─── */
+.welcome-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 14px;
+  margin-bottom: 20px;
+  display: block;
+  margin-inline: auto;
+}
+
+/* Tool/system messages: no avatar */
+.chat-group.other .chat-avatar,
+.chat-group.tool .chat-avatar {
+  display: none !important;
+}
