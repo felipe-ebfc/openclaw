@@ -479,7 +479,7 @@ function classifyHeartbeatEntries(entries: Array<{ parsed: Record<string, unknow
 
     // Walk parentId chain among new entries to find the originating user message
     let current: string | undefined = entry.parsed.parentId as string | undefined;
-    const visited = new Set<string>([id]);
+    const visited: Set<string> = new Set<string>([id]);
     let isHeartbeat = false;
     while (current && !visited.has(current)) {
       visited.add(current);
