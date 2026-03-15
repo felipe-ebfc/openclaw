@@ -369,4 +369,127 @@ describe("heartbeat transcript pruning", () => {
       { prefix: "openclaw-hb-repar-" },
     );
   });
+
+  it("preserves concurrent user message AND its assistant reply (parentId ancestry)", async () => {
+    await withTempTelegramHeartbeatSandbox(
+      async ({ tmpDir, storePath, replySpy }) => {
+        const sessionId = "test-session-ancestry";
+        const sessionKey = resolveMainSessionKey(undefined);
+        const transcriptPath = path.join(tmpDir, `${sessionId}.jsonl`);
+        const originalContent = await createTranscriptWithContent(transcriptPath, sessionId);
+
+        await seedSessionStore(storePath, sessionKey, {
+          sessionId,
+          lastChannel: "telegram",
+          lastProvider: "telegram",
+          lastTo: "user123",
+        });
+
+        // The exact race Osito hit: heartbeat writes its user prompt, then a
+        // real webchat user sends a message that gets processed (user + assistant
+        // reply with a REAL model, not delivery-mirror), then the heartbeat
+        // assistant response arrives.
+        //
+        // Tree:
+        //   pre-existing → hb-user → real-user → real-assistant
+        //                         → hb-assistant
+        const hbUser = {
+          type: "message",
+          id: "hb-u",
+          parentId: "pre-existing",
+          timestamp: new Date().toISOString(),
+          message: { role: "user", content: "heartbeat check" },
+        };
+        const realUser = {
+          type: "message",
+          id: "real-u",
+          parentId: "hb-u",
+          timestamp: new Date().toISOString(),
+          message: { role: "user", content: "What is the weather?" },
+        };
+        const realAssistant = {
+          type: "message",
+          id: "real-a",
+          parentId: "real-u",
+          timestamp: new Date().toISOString(),
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "The weather is sunny." }],
+            model: "claude-sonnet-4-20250514",
+            provider: "anthropic",
+          },
+        };
+        const hbAssistant = {
+          type: "message",
+          id: "hb-a",
+          parentId: "hb-u",
+          timestamp: new Date().toISOString(),
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "HEARTBEAT_OK" }],
+            model: "claude-sonnet-4-20250514",
+            provider: "anthropic",
+          },
+        };
+
+        replySpy.mockImplementationOnce(async () => {
+          const lines =
+            [hbUser, realUser, realAssistant, hbAssistant]
+              .map((e) => JSON.stringify(e))
+              .join("\n") + "\n";
+          await fs.appendFile(transcriptPath, lines);
+          return {
+            text: "HEARTBEAT_OK",
+            usage: { inputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 },
+          };
+        });
+
+        const cfg = {
+          version: 1,
+          model: "test-model",
+          agent: { workspace: tmpDir },
+          session: { store: storePath },
+          channels: { telegram: {} },
+        } as unknown as OpenClawConfig;
+
+        await runHeartbeatOnce({
+          agentId: undefined,
+          reason: "test",
+          cfg,
+          deps: { sendTelegram: vi.fn() },
+        });
+
+        const finalContent = await fs.readFile(transcriptPath, "utf-8");
+        const parsed = finalContent
+          .trim()
+          .split("\n")
+          .map((line) => {
+            try {
+              return JSON.parse(line) as Record<string, unknown>;
+            } catch {
+              return null;
+            }
+          });
+
+        // Heartbeat entries should be removed
+        expect(parsed.find((e) => e?.id === "hb-u")).toBeUndefined();
+        expect(parsed.find((e) => e?.id === "hb-a")).toBeUndefined();
+
+        // Real user message and its assistant reply must SURVIVE
+        const realU = parsed.find((e) => e?.id === "real-u");
+        const realA = parsed.find((e) => e?.id === "real-a");
+        expect(realU).toBeDefined();
+        expect(realA).toBeDefined();
+
+        // real-user was reparented from hb-u to pre-existing
+        expect(realU?.parentId).toBe("pre-existing");
+        // real-assistant still points at real-user (unchanged)
+        expect(realA?.parentId).toBe("real-u");
+
+        // Original content intact
+        expect(finalContent.startsWith(originalContent)).toBe(true);
+      },
+      { prefix: "openclaw-hb-ancestry-" },
+    );
+  });
 });

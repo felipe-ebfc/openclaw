@@ -399,68 +399,138 @@ function resolveReparentId(
 const DELIVERY_MIRROR_MODEL = "delivery-mirror";
 
 /**
- * Classify a parsed JSONL entry as heartbeat or concurrent.
+ * Classify new JSONL entries as heartbeat or concurrent using parentId ancestry.
  *
- * Heartbeat entries are produced by the single agent invocation inside
- * getReplyFromConfig: one user prompt, plus assistant/toolResult turns from
- * the model. Concurrent entries (delivery mirrors, external chat messages)
- * are identified by model or by being a second user message.
+ * The heartbeat run produces one user message (the prompt) followed by
+ * assistant/toolResult turns whose parentId chain traces back to that user
+ * message. Concurrent entries (delivery mirrors, real chat replies) either
+ * descend from a different user message or are delivery mirrors.
+ *
+ * Returns the set of entry IDs that should be removed (heartbeat entries)
+ * and a parentId map for reparenting survivors.
  */
-function isHeartbeatEntry(
-  parsed: Record<string, unknown>,
-  heartbeatUserFound: { value: boolean },
-): boolean {
-  if (parsed.type !== "message") {
-    // Non-message entries (model_change, thinking_level_change, etc.)
-    // produced during the heartbeat run. Safe to remove.
-    return true;
+function classifyHeartbeatEntries(entries: Array<{ parsed: Record<string, unknown> | null }>): {
+  removedIds: Set<string>;
+  parentMap: Map<string, string | null>;
+} {
+  const removedIds = new Set<string>();
+  const parentMap = new Map<string, string | null>();
+
+  // Build an index of id → parsed entry for ancestry lookups
+  const entryById = new Map<string, Record<string, unknown>>();
+  for (const entry of entries) {
+    if (!entry.parsed || typeof entry.parsed.id !== "string") {
+      continue;
+    }
+    entryById.set(entry.parsed.id, entry.parsed);
   }
-  const msg = parsed.message as { role?: string; model?: string } | undefined;
-  if (!msg?.role) {
-    return true;
+
+  // Pass 1: identify user messages.
+  // First user message = heartbeat prompt. Second+ = concurrent chat.
+  let heartbeatUserId: string | null = null;
+  const concurrentUserIds = new Set<string>();
+  for (const entry of entries) {
+    if (!entry.parsed || typeof entry.parsed.id !== "string") {
+      continue;
+    }
+    if (entry.parsed.type !== "message") {
+      continue;
+    }
+    const msg = entry.parsed.message as { role?: string } | undefined;
+    if (msg?.role !== "user") {
+      continue;
+    }
+    if (!heartbeatUserId) {
+      heartbeatUserId = entry.parsed.id;
+    } else {
+      concurrentUserIds.add(entry.parsed.id);
+    }
   }
-  // First user message = the heartbeat prompt
-  if (msg.role === "user" && !heartbeatUserFound.value) {
-    heartbeatUserFound.value = true;
-    return true;
+
+  if (!heartbeatUserId) {
+    return { removedIds, parentMap };
   }
-  // Second+ user message = concurrent chat message
-  if (msg.role === "user") {
-    return false;
+
+  // Mark the heartbeat user entry for removal
+  const hbUserEntry = entryById.get(heartbeatUserId);
+  removedIds.add(heartbeatUserId);
+  parentMap.set(heartbeatUserId, (hbUserEntry?.parentId as string | null) ?? null);
+
+  // Pass 2: for each non-user entry, walk parentId chain to determine ancestry.
+  // If the chain reaches the heartbeat user (without passing through a concurrent
+  // user), the entry belongs to the heartbeat run. If it reaches a concurrent
+  // user, it's a real chat reply that must be preserved.
+  for (const entry of entries) {
+    if (!entry.parsed || typeof entry.parsed.id !== "string") {
+      continue;
+    }
+    const id = entry.parsed.id;
+    if (id === heartbeatUserId || concurrentUserIds.has(id)) {
+      continue; // Already classified
+    }
+
+    // Delivery mirrors are always concurrent, regardless of ancestry
+    if (entry.parsed.type === "message") {
+      const msg = entry.parsed.message as { model?: string } | undefined;
+      if (msg?.model === DELIVERY_MIRROR_MODEL) {
+        continue; // Keep — concurrent
+      }
+    }
+
+    // Walk parentId chain among new entries to find the originating user message
+    let current: string | undefined = entry.parsed.parentId as string | undefined;
+    const visited = new Set<string>([id]);
+    let isHeartbeat = false;
+    while (current && !visited.has(current)) {
+      visited.add(current);
+      if (current === heartbeatUserId) {
+        isHeartbeat = true;
+        break;
+      }
+      if (concurrentUserIds.has(current)) {
+        // Ancestor is a concurrent user message — this entry is a real chat reply
+        break;
+      }
+      const ancestor = entryById.get(current);
+      if (!ancestor) {
+        // parentId points outside new entries. This entry was written during the
+        // heartbeat window but doesn't descend from any new user message.
+        // Non-message entries (model_change etc.) are safe to remove; message
+        // entries without a clear heartbeat ancestor are kept to be safe.
+        isHeartbeat = entry.parsed.type !== "message";
+        break;
+      }
+      current = ancestor.parentId as string | undefined;
+    }
+
+    if (isHeartbeat) {
+      removedIds.add(id);
+      parentMap.set(id, (entry.parsed.parentId as string | null) ?? null);
+    }
   }
-  // Delivery mirrors are written by a separate process (concurrent)
-  if (msg.model === DELIVERY_MIRROR_MODEL) {
-    return false;
-  }
-  // Assistant and toolResult entries from the agent run
-  return true;
+
+  return { removedIds, parentMap };
 }
 
 /**
  * Prune heartbeat transcript entries by selectively removing only the heartbeat's
  * own JSONL entries from the transcript file, preserving any concurrent messages
- * (e.g., webchat delivery mirrors) that were appended during the heartbeat window.
+ * (e.g., webchat delivery mirrors, real chat replies) that were appended during
+ * the heartbeat window.
  *
  * Previous approach used blind byte-offset truncation which destroyed concurrent
  * messages written between captureTranscriptState and pruneHeartbeatTranscript.
  *
- * Identification strategy: the heartbeat run produces one user message (the prompt)
- * followed by assistant/toolResult turns. Concurrent entries are delivery mirrors
- * (model "delivery-mirror") or additional user messages from external chat. Entries
- * are classified by their content properties, not by tree ancestry, because concurrent
- * entries may also have parentId pointing at heartbeat entries (they see the heartbeat
- * entries as the current leaf when they open the file).
+ * Classification uses parentId ancestry: an entry is heartbeat if its parentId
+ * chain traces back to the heartbeat user message (first user turn in the new
+ * entries). Entries descending from a concurrent user message, or delivery mirrors,
+ * are preserved.
  */
-async function pruneHeartbeatTranscript(_params: {
+async function pruneHeartbeatTranscript(params: {
   transcriptPath?: string;
   preHeartbeatSize?: number;
 }) {
-  // DISABLED: entry classification still misidentifies concurrent assistant replies
-  // as heartbeat entries (any assistant turn after the heartbeat prompt is pruned,
-  // including replies to real user messages sent during the heartbeat window).
-  // Trade-off: heartbeat turns accumulate in transcript until proper fix lands.
-  return;
-  const { transcriptPath, preHeartbeatSize } = _params;
+  const { transcriptPath, preHeartbeatSize } = params;
   if (!transcriptPath || typeof preHeartbeatSize !== "number" || preHeartbeatSize < 0) {
     return;
   }
@@ -491,24 +561,11 @@ async function pruneHeartbeatTranscript(_params: {
       }
     });
 
-    // Classify each entry as heartbeat or concurrent using content-based heuristics.
-    // Build a set of removed IDs and a parentId map for reparenting.
-    const removedIds = new Set<string>();
-    const parentMap = new Map<string, string | null>();
-    const heartbeatUserFound = { value: false };
+    // Classify entries using parentId ancestry
+    const { removedIds, parentMap } = classifyHeartbeatEntries(entries);
 
-    for (const entry of entries) {
-      if (!entry.parsed) {
-        continue; // Unparseable lines are kept (safe default)
-      }
-      const id = entry.parsed.id as string | undefined;
-      if (!id) {
-        continue;
-      }
-      if (isHeartbeatEntry(entry.parsed, heartbeatUserFound)) {
-        removedIds.add(id);
-        parentMap.set(id, (entry.parsed.parentId as string | null) ?? null);
-      }
+    if (removedIds.size === 0) {
+      return; // Nothing to prune
     }
 
     // Separate heartbeat entries from concurrent entries
