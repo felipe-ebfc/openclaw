@@ -33,7 +33,7 @@ const FRIENDLY_REASONS: Record<string, string> = {
   model_not_found: "model unavailable",
   session_expired: "session expired",
   format: "response format error",
-  unknown: "briefly unavailable",
+  unknown: "temporary hiccup",
 };
 
 export function formatFallbackAttemptReason(attempt: RuntimeFallbackAttempt): string {
@@ -87,7 +87,7 @@ export function buildFallbackNotice(params: {
     return null;
   }
   const reasonSummary = buildFallbackReasonSummary(params.attempts);
-  return `⚙️ Using backup model — primary ${reasonSummary}.`;
+  return `⚙️ Using backup model — ${reasonSummary}.`;
 }
 
 export function buildFallbackClearedNotice(_params: {
