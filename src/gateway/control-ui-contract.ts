@@ -6,4 +6,6 @@ export type ControlUiBootstrapConfig = {
   assistantAvatar: string;
   assistantAgentId: string;
   serverVersion?: string;
+  /** Gateway token for automatic auth seeding. Only present when EBFC_AUTO_AUTH=true. */
+  autoAuthToken?: string;
 };
