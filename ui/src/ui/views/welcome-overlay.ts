@@ -28,7 +28,8 @@ export function renderWelcomeOverlay(state: AppViewState) {
       @click=${() => state.handleDismissWelcomeOverlay()}
     >
       <div class="welcome-card" @click=${(e: Event) => e.stopPropagation()}>
-        <div class="welcome-header">Welcome to EBFC AI 👷</div>
+        <img class="welcome-logo" src="/logo-square.png" alt="EBFC AI" />
+        <div class="welcome-header">Welcome to EBFC AI</div>
         <div class="welcome-sub">${subtext}</div>
         <button class="btn primary welcome-cta" @click=${() => state.handleDismissWelcomeOverlay()}>
           Get started

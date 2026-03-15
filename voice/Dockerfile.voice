@@ -1,0 +1,41 @@
+# EBFC AI Voice Pipeline — Kokoro TTS + Whisper STT
+# Models: ~800MB total (310MB Kokoro + 27MB voices + 465MB Whisper)
+# Runtime: Python 3.11 + whisper.cpp CLI
+# Runs alongside OpenClaw container, accessed via local socket or HTTP
+
+FROM python:3.11-slim
+
+# Install system deps for audio processing
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libsndfile1 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install whisper.cpp (pre-built binary)
+# TODO: Replace with architecture-appropriate binary for production
+# For now, whisper-cli must be built from source or use a pre-built release
+RUN pip install --no-cache-dir \
+    kokoro-onnx==0.5.0 \
+    onnxruntime==1.23.2 \
+    soundfile==0.13.1 \
+    numpy==2.4.1 \
+    flask==3.1.0
+
+# Create model directory
+RUN mkdir -p /models/kokoro /models/whisper /app/output
+
+# Models are mounted as volumes (not baked into image)
+# Mount points:
+#   /models/kokoro/kokoro-v1.0.onnx (310MB)
+#   /models/kokoro/voices-v1.0.bin (27MB)
+#   /models/whisper/ggml-small.bin (465MB)
+
+WORKDIR /app
+
+COPY speak.py /app/speak.py
+COPY voice-api.py /app/voice-api.py
+
+EXPOSE 8090
+
+CMD ["python3", "/app/voice-api.py"]

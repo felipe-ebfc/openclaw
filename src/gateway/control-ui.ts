@@ -346,12 +346,17 @@ export function handleControlUiHttpRequest(
       res.end();
       return true;
     }
+    const autoAuthToken =
+      process.env.EBFC_AUTO_AUTH === "true" && process.env.OPENCLAW_GATEWAY_TOKEN
+        ? process.env.OPENCLAW_GATEWAY_TOKEN
+        : undefined;
     sendJson(res, 200, {
       basePath,
       assistantName: identity.name,
       assistantAvatar: avatarValue ?? identity.avatar,
       assistantAgentId: identity.agentId,
       serverVersion: resolveRuntimeServiceVersion(process.env),
+      ...(autoAuthToken ? { autoAuthToken } : {}),
     } satisfies ControlUiBootstrapConfig);
     return true;
   }

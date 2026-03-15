@@ -461,6 +461,24 @@ const formatVoiceModeLine = (
   return `🔊 Voice: ${autoMode} · provider=${provider} · limit=${maxLength} · summary=${summarize}`;
 };
 
+/** Resolve the user-facing mode tier label for a given model. */
+export function resolveModeTier(model: string): "Standard" | "Sharp" | "Deep Think" {
+  const m = model.toLowerCase();
+  if (m.includes("opus") || m.includes("o1") || m.includes("o3") || m.includes("deep-think")) {
+    return "Deep Think";
+  }
+  if (
+    m.includes("sonnet") ||
+    m.includes("gpt-4o") ||
+    m.includes("claude-3-5") ||
+    m.includes("claude-3-7")
+  ) {
+    return "Sharp";
+  }
+  // Default: Standard (Kimi, Haiku, budget/fast models)
+  return "Standard";
+}
+
 export function buildStatusMessage(args: StatusArgs): string {
   const now = args.now ?? Date.now();
   const entry = args.sessionEntry;
@@ -761,7 +779,7 @@ export function buildStatusMessage(args: StatusArgs): string {
     } else if (pct !== null && pct >= 60) {
       statusFooter = `📓 Notebook's getting full. Good time to /fresh when ready.`;
     } else if (fallbackState.active) {
-      statusFooter = `⚙️ Switching gears — using ${modeLabel} right now.`;
+      statusFooter = `⚙️ Using backup model (${modeLabel}) right now.`;
     } else {
       statusFooter = "All systems go. Ready when you are.";
     }

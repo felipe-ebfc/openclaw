@@ -24,19 +24,43 @@ function truncateFallbackReasonPart(value: string, max = FALLBACK_REASON_PART_MA
   return `${text.slice(0, Math.max(0, max - 1)).trimEnd()}…`;
 }
 
+const FRIENDLY_REASONS: Record<string, string> = {
+  rate_limit: "model is busy",
+  timeout: "response timed out",
+  auth: "authentication issue",
+  auth_permanent: "authentication issue",
+  billing: "billing issue",
+  model_not_found: "model unavailable",
+  session_expired: "session expired",
+  format: "response format error",
+  unknown: "temporary hiccup",
+};
+
 export function formatFallbackAttemptReason(attempt: RuntimeFallbackAttempt): string {
   const reason = attempt.reason?.trim();
   if (reason) {
-    return reason.replace(/_/g, " ");
+    return FRIENDLY_REASONS[reason] ?? reason.replace(/_/g, " ");
   }
   const code = attempt.code?.trim();
   if (code) {
     return code;
   }
   if (typeof attempt.status === "number") {
+    if (attempt.status === 529) {
+      return "model is busy";
+    }
+    if (attempt.status === 429) {
+      return "model is busy";
+    }
+    if (attempt.status === 503) {
+      return "temporarily unavailable";
+    }
+    if (attempt.status === 502) {
+      return "temporarily unavailable";
+    }
     return `HTTP ${attempt.status}`;
   }
-  return truncateFallbackReasonPart(attempt.error || "error");
+  return truncateFallbackReasonPart(attempt.error || "temporarily unavailable");
 }
 
 function formatFallbackAttemptSummary(attempt: RuntimeFallbackAttempt): string {
@@ -71,20 +95,15 @@ export function buildFallbackNotice(params: {
     return null;
   }
   const reasonSummary = buildFallbackReasonSummary(params.attempts);
-  return `⚙️ Switching gears... (${reasonSummary})`;
+  return `⚙️ Using backup model — ${reasonSummary}.`;
 }
 
-export function buildFallbackClearedNotice(params: {
+export function buildFallbackClearedNotice(_params: {
   selectedProvider: string;
   selectedModel: string;
   previousActiveModel?: string;
 }): string {
-  const selected = formatProviderModelRef(params.selectedProvider, params.selectedModel);
-  const previous = normalizeFallbackModelRef(params.previousActiveModel);
-  if (previous && previous !== selected) {
-    return `✅ Back to full speed.`;
-  }
-  return `✅ Back to full speed.`;
+  return `✅ Back on the main model.`;
 }
 
 export function resolveActiveFallbackState(params: {

@@ -1,0 +1,143 @@
+diff --git a/src/agents/pi-embedded-helpers.buildbootstrapcontextfiles.test.ts b/src/agents/pi-embedded-helpers.buildbootstrapcontextfiles.test.ts
+index a1d69af02..07316c560 100644
+--- a/src/agents/pi-embedded-helpers.buildbootstrapcontextfiles.test.ts
++++ b/src/agents/pi-embedded-helpers.buildbootstrapcontextfiles.test.ts
+@@ -117,6 +117,58 @@ describe("buildBootstrapContextFiles", () => {
+     expect(result[0]?.content.startsWith("[MISSING]")).toBe(true);
+   });
+ 
++  it("warns when files are zero-injected due to budget exhaustion", () => {
++    const files = [
++      makeFile({ name: "AGENTS.md", content: "a".repeat(200) }),
++      makeFile({ name: "MEMORY.md", path: "/tmp/MEMORY.md", content: "b".repeat(200) }),
++      makeFile({ name: "USER.md", path: "/tmp/USER.md", content: "c".repeat(200) }),
++      makeFile({ name: "HEARTBEAT.md", path: "/tmp/HEARTBEAT.md", content: "d".repeat(200) }),
++    ];
++    const warnings: string[] = [];
++    // Budget of 250 with 200/file: first file uses 200, second uses 50 (truncated),
++    // remaining files hit < 64 budget threshold and get zero-injected.
++    buildBootstrapContextFiles(files, {
++      maxChars: 200,
++      totalMaxChars: 250,
++      warn: (msg) => warnings.push(msg),
++    });
++    const zeroWarn = warnings.find((w) => w.includes("zero-injection"));
++    expect(zeroWarn).toBeDefined();
++    expect(zeroWarn).toContain("0 chars");
++    expect(zeroWarn).toContain("budget");
++  });
++
++  it("warns when files are skipped because remaining budget is zero", () => {
++    const files = [
++      makeFile({ name: "AGENTS.md", content: "a".repeat(100) }),
++      makeFile({ name: "USER.md", path: "/tmp/USER.md", content: "b".repeat(100) }),
++    ];
++    const warnings: string[] = [];
++    // Budget of 100 with 100/file: first file uses all 100, second file hits <= 0.
++    buildBootstrapContextFiles(files, {
++      maxChars: 100,
++      totalMaxChars: 100,
++      warn: (msg) => warnings.push(msg),
++    });
++    const zeroWarn = warnings.find((w) => w.includes("zero-injection"));
++    expect(zeroWarn).toBeDefined();
++    expect(zeroWarn).toContain("USER.md");
++  });
++
++  it("does not warn zero-injection when all files fit within budget", () => {
++    const files = [
++      makeFile({ name: "AGENTS.md", content: "small" }),
++      makeFile({ name: "MEMORY.md", path: "/tmp/MEMORY.md", content: "tiny" }),
++    ];
++    const warnings: string[] = [];
++    buildBootstrapContextFiles(files, {
++      totalMaxChars: 100_000,
++      warn: (msg) => warnings.push(msg),
++    });
++    const zeroWarn = warnings.find((w) => w.includes("zero-injection"));
++    expect(zeroWarn).toBeUndefined();
++  });
++
+   it("skips files with missing or invalid paths and emits warnings", () => {
+     const malformedMissingPath = {
+       name: "SKILL-SECURITY.md",
+diff --git a/src/agents/pi-embedded-helpers/bootstrap.ts b/src/agents/pi-embedded-helpers/bootstrap.ts
+index e6e0792f4..8adeaf4f7 100644
+--- a/src/agents/pi-embedded-helpers/bootstrap.ts
++++ b/src/agents/pi-embedded-helpers/bootstrap.ts
+@@ -206,9 +206,11 @@ export function buildBootstrapContextFiles(
+   );
+   let remainingTotalChars = totalMaxChars;
+   const result: EmbeddedContextFile[] = [];
++  const skippedFiles: string[] = [];
+   for (const file of files) {
+     if (remainingTotalChars <= 0) {
+-      break;
++      skippedFiles.push(file.name);
++      continue;
+     }
+     const pathValue = typeof file.path === "string" ? file.path.trim() : "";
+     if (!pathValue) {
+@@ -234,12 +236,19 @@ export function buildBootstrapContextFiles(
+       opts?.warn?.(
+         `remaining bootstrap budget is ${remainingTotalChars} chars (<${MIN_BOOTSTRAP_FILE_BUDGET_CHARS}); skipping additional bootstrap files`,
+       );
++      // Collect remaining non-missing files as skipped for the zero-injection warning.
++      for (const remaining of files.slice(files.indexOf(file))) {
++        if (!remaining.missing && (remaining.content ?? "").trim().length > 0) {
++          skippedFiles.push(remaining.name);
++        }
++      }
+       break;
+     }
+     const fileMaxChars = Math.max(1, Math.min(maxChars, remainingTotalChars));
+     const trimmed = trimBootstrapContent(file.content ?? "", file.name, fileMaxChars);
+     const contentWithinBudget = clampToBudget(trimmed.content, remainingTotalChars);
+     if (!contentWithinBudget) {
++      skippedFiles.push(file.name);
+       continue;
+     }
+     if (trimmed.truncated || contentWithinBudget.length < trimmed.content.length) {
+@@ -253,6 +262,12 @@ export function buildBootstrapContextFiles(
+       content: contentWithinBudget,
+     });
+   }
++  if (skippedFiles.length > 0) {
++    opts?.warn?.(
++      `bootstrap zero-injection: ${skippedFiles.join(", ")} received 0 chars ` +
++        `(total budget ${totalMaxChars} exhausted); agent is missing this context`,
++    );
++  }
+   return result;
+ }
+ 
+diff --git a/src/agents/pi-embedded-runner/run/attempt.ts b/src/agents/pi-embedded-runner/run/attempt.ts
+index 4a75c297a..51da7da5d 100644
+--- a/src/agents/pi-embedded-runner/run/attempt.ts
++++ b/src/agents/pi-embedded-runner/run/attempt.ts
+@@ -753,6 +753,25 @@ export async function runEmbeddedAttempt(
+       bootstrapMaxChars,
+       bootstrapTotalMaxChars,
+     });
++    if (bootstrapAnalysis.hasTruncation) {
++      const summary = bootstrapAnalysis.truncatedFiles
++        .map((f) => `${f.name}: ${f.rawChars} raw → ${f.injectedChars} injected`)
++        .join("; ");
++      log.warn(
++        `bootstrap truncation: ${summary} ` +
++          `(budget: ${bootstrapTotalMaxChars} total, ${bootstrapMaxChars}/file); ` +
++          `sessionKey=${sessionLabel}`,
++      );
++    }
++    const zeroInjected = bootstrapAnalysis.files.filter(
++      (f) => !f.missing && f.rawChars > 0 && f.injectedChars === 0,
++    );
++    if (zeroInjected.length > 0) {
++      log.warn(
++        `bootstrap zero-injection: ${zeroInjected.map((f) => `${f.name} (${f.rawChars} chars available)`).join(", ")} — ` +
++          `files skipped entirely, agent is missing this context; sessionKey=${sessionLabel}`,
++      );
++    }
+     const bootstrapPromptWarningMode = resolveBootstrapPromptTruncationWarningMode(params.config);
+     const bootstrapPromptWarning = buildBootstrapPromptWarning({
+       analysis: bootstrapAnalysis,

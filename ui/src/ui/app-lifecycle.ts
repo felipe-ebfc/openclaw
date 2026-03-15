@@ -18,12 +18,14 @@ import {
 } from "./app-settings.ts";
 import { loadControlUiBootstrapConfig } from "./controllers/control-ui-bootstrap.ts";
 import type { Tab } from "./navigation.ts";
+import { loadSettings, type UiSettings } from "./storage.ts";
 
 type LifecycleHost = {
   basePath: string;
   client?: { stop: () => void } | null;
   connectGeneration: number;
   connected?: boolean;
+  settings: UiSettings;
   tab: Tab;
   assistantName: string;
   assistantAvatar: string | null;
@@ -55,6 +57,8 @@ export function handleConnected(host: LifecycleHost) {
     if (host.connectGeneration !== connectGeneration) {
       return;
     }
+    // Re-read settings from localStorage so any token seeded by auto-auth is picked up.
+    host.settings = loadSettings();
     connectGateway(host as unknown as Parameters<typeof connectGateway>[0]);
   });
   startNodesPolling(host as unknown as Parameters<typeof startNodesPolling>[0]);

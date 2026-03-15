@@ -48,6 +48,40 @@ services:
       retries: 5
       start_period: 20s
 
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-data:/root/.ollama
+    restart: unless-stopped
+    # Exposes port 11434 on the default compose network; reachable by
+    # openclaw-gateway as http://ollama:11434 via models.providers.ollama.baseUrl.
+    # Pull the embedding model on first start:
+    #   docker compose exec ollama ollama pull nomic-embed-text
+
+  voice:
+    build:
+      context: ./voice
+      dockerfile: Dockerfile.voice
+    environment:
+      VOICE_PORT: 8090
+    volumes:
+      - ${KOKORO_MODELS_DIR:-./models/kokoro}:/models/kokoro:ro
+      - ${WHISPER_MODELS_DIR:-./models/whisper}:/models/whisper:ro
+      - voice-output:/app/output
+    ports:
+      - "${VOICE_PORT:-8090}:8090"
+    restart: unless-stopped
+    # Reachable from openclaw-gateway as http://voice:8090
+    # POST /tts {"text": "..."} -> audio/mpeg
+    # POST /stt (multipart audio) -> {"text": "..."}
+    # GET  /health -> {"status": "ok", "tts": true, "stt": true}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:8090/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
   openclaw-cli:
     image: ${OPENCLAW_IMAGE:-openclaw:local}
     network_mode: "service:openclaw-gateway"
@@ -74,3 +108,7 @@ services:
     entrypoint: ["node", "dist/index.js"]
     depends_on:
       - openclaw-gateway
+
+volumes:
+  ollama-data:
+  voice-output:
