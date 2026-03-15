@@ -83,9 +83,9 @@ function isSilentReplyLeadFragment(text: string): boolean {
   if (!/^[A-Z_]+$/.test(normalized)) {
     return false;
   }
-  if (normalized === SILENT_REPLY_TOKEN) {
-    return false;
-  }
+  // Include exact match — don't exclude it. The caller checks isSilentReplyText
+  // first, but case-insensitive variants ("No_Reply" → "NO_REPLY") must be caught
+  // by at least one of the two checks.
   return SILENT_REPLY_TOKEN.startsWith(normalized);
 }
 

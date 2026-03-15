@@ -3,7 +3,7 @@ import type { GatewayBrowserClient } from "../gateway.ts";
 import type { ChatAttachment } from "../ui-types.ts";
 import { generateUUID } from "../uuid.ts";
 
-const SILENT_REPLY_PATTERN = /^\s*NO_REPLY\s*$/;
+const SILENT_REPLY_PATTERN = /^\s*NO_REPLY\s*$/i;
 
 function isSilentReplyStream(text: string): boolean {
   return SILENT_REPLY_PATTERN.test(text);

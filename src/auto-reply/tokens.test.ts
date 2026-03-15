@@ -34,6 +34,14 @@ describe("isSilentReplyText", () => {
     expect(isSilentReplyText("HEARTBEAT_OK", "HEARTBEAT_OK")).toBe(true);
     expect(isSilentReplyText("Checked inbox. HEARTBEAT_OK", "HEARTBEAT_OK")).toBe(false);
   });
+
+  it("matches case-insensitive variants", () => {
+    expect(isSilentReplyText("No_Reply")).toBe(true);
+    expect(isSilentReplyText("no_reply")).toBe(true);
+    expect(isSilentReplyText("NO_reply")).toBe(true);
+    expect(isSilentReplyText("No_REPLY")).toBe(true);
+    expect(isSilentReplyText("  No_Reply  ")).toBe(true);
+  });
 });
 
 describe("stripSilentToken", () => {
@@ -71,6 +79,12 @@ describe("stripSilentToken", () => {
   it("works with custom token", () => {
     expect(stripSilentToken("done HEARTBEAT_OK", "HEARTBEAT_OK")).toBe("done");
   });
+
+  it("strips case-insensitive variants from mixed content", () => {
+    expect(stripSilentToken("Done. No_Reply")).toBe("Done.");
+    expect(stripSilentToken("😄 no_reply")).toBe("😄");
+    expect(stripSilentToken("NO_reply")).toBe("");
+  });
 });
 
 describe("isSilentReplyPrefixText", () => {
@@ -100,5 +114,12 @@ describe("isSilentReplyPrefixText", () => {
     expect(isSilentReplyPrefixText("NO_X")).toBe(false);
     expect(isSilentReplyPrefixText("NO_REPLY more")).toBe(false);
     expect(isSilentReplyPrefixText("NO-")).toBe(false);
+  });
+
+  it("matches case-insensitive exact variants (e.g. Kimi K2.5 output)", () => {
+    expect(isSilentReplyPrefixText("No_Reply")).toBe(true);
+    expect(isSilentReplyPrefixText("no_reply")).toBe(true);
+    expect(isSilentReplyPrefixText("NO_reply")).toBe(true);
+    expect(isSilentReplyPrefixText("  No_Reply  ")).toBe(true);
   });
 });

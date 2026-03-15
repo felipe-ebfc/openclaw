@@ -12,7 +12,8 @@ function getSilentExactRegex(token: string): RegExp {
     return cached;
   }
   const escaped = escapeRegExp(token);
-  const regex = new RegExp(`^\\s*${escaped}\\s*$`);
+  // Case-insensitive: models may output "No_Reply", "no_reply", etc.
+  const regex = new RegExp(`^\\s*${escaped}\\s*$`, "i");
   silentExactRegexByToken.set(token, regex);
   return regex;
 }
@@ -23,7 +24,8 @@ function getSilentTrailingRegex(token: string): RegExp {
     return cached;
   }
   const escaped = escapeRegExp(token);
-  const regex = new RegExp(`(?:^|\\s+|\\*+)${escaped}\\s*$`);
+  // Case-insensitive: models may output "No_Reply", "no_reply", etc.
+  const regex = new RegExp(`(?:^|\\s+|\\*+)${escaped}\\s*$`, "i");
   silentTrailingRegexByToken.set(token, regex);
   return regex;
 }
@@ -60,6 +62,13 @@ export function isSilentReplyPrefixText(
   if (!trimmed) {
     return false;
   }
+  const tokenUpper = token.toUpperCase();
+  // Case-insensitive exact match — catch "No_Reply", "no_reply", etc.
+  // Must be checked before the uppercase-only guard below.
+  const normalizedFull = trimmed.trimEnd().toUpperCase();
+  if (normalizedFull === tokenUpper) {
+    return true;
+  }
   // Guard against suppressing natural-language "No..." text while still
   // catching uppercase lead fragments like "NO" from streamed NO_REPLY.
   if (trimmed !== trimmed.toUpperCase()) {
@@ -75,7 +84,6 @@ export function isSilentReplyPrefixText(
   if (/[^A-Z_]/.test(normalized)) {
     return false;
   }
-  const tokenUpper = token.toUpperCase();
   if (!tokenUpper.startsWith(normalized)) {
     return false;
   }

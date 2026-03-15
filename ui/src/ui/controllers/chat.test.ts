@@ -470,6 +470,44 @@ describe("handleChatEvent", () => {
     expect(handleChatEvent(state, payload)).toBe("final");
   });
 
+  it("drops case-insensitive NO_REPLY variants (Kimi K2.5)", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "No_Reply",
+      chatStreamStartedAt: 100,
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "final",
+      message: {
+        role: "assistant",
+        content: [{ type: "text", text: "No_Reply" }],
+      },
+    };
+
+    expect(handleChatEvent(state, payload)).toBe("final");
+    expect(state.chatMessages).toEqual([]);
+  });
+
+  it("ignores case-insensitive NO_REPLY delta updates", () => {
+    const state = createState({
+      sessionKey: "main",
+      chatRunId: "run-1",
+      chatStream: "Hello",
+    });
+    const payload: ChatEventPayload = {
+      runId: "run-1",
+      sessionKey: "main",
+      state: "delta",
+      message: { role: "assistant", content: [{ type: "text", text: "no_reply" }] },
+    };
+
+    expect(handleChatEvent(state, payload)).toBe("delta");
+    expect(state.chatStream).toBe("Hello");
+  });
+
   it("keeps assistant message when text field has real reply but content is NO_REPLY", () => {
     const state = createState({
       sessionKey: "main",
