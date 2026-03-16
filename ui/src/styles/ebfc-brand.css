@@ -407,8 +407,10 @@ button[title*="cron"] {
   cursor: pointer;
   padding: 4px;
   margin: 0 4px;
-  width: 30px;
-  height: 30px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
@@ -489,4 +491,160 @@ button[title*="cron"] {
 /* K: remove border in light mode — logo already contrasts on light bg */
 :root[data-theme="light"] .brand-logo img {
   border-color: transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LOCKED APP FRAME — all layout overrides consolidated here
+   ebfc-brand.css loads last in the cascade so these rules always win.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* Prevent html/body from scrolling — the shell IS the viewport */
+html, body {
+  overflow: hidden !important;
+  height: 100% !important;
+  max-height: 100% !important;
+}
+
+/* Shell: full viewport, no overflow, single column (nav removed) */
+.shell {
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+  /* Collapse the nav column: content spans the entire grid width */
+}
+
+/* iPhone Safari: use svh so the shell sits below the address bar */
+@supports (height: 100svh) {
+  .shell {
+    height: 100svh !important;
+    max-height: 100svh !important;
+  }
+}
+
+/* Content spans ALL grid columns (removes any nav-column gap) */
+.content {
+  grid-column: 1 / -1 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  min-height: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+/* Topbar: first row, never scrolls, always pinned */
+.topbar {
+  flex-shrink: 0 !important;
+  position: relative !important;
+  z-index: 50 !important;
+}
+
+/* No horizontal scroll on any layout container */
+.shell,
+.content,
+.chat,
+.chat-thread {
+  overflow-x: hidden !important;
+}
+
+/* Chat card: fills remaining content height, flex column */
+.chat {
+  flex: 1 1 0 !important;
+  min-height: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+
+/* Chat thread: THE ONLY scrollable element — no overscroll into blank space */
+.chat-thread {
+  flex: 1 1 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  min-height: 0 !important;
+  overscroll-behavior-y: contain !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+/* Compose bar: frozen at bottom, never scrolls */
+.chat-compose {
+  flex-shrink: 0 !important;
+  /* iPhone Safari: clear the home-indicator notch */
+  padding-bottom: max(4px, env(safe-area-inset-bottom)) !important;
+}
+
+/* ─── Brand text: AI COMPANION on ALL screen sizes ─── */
+/* Overrides layout.mobile.css which hides .brand-sub on small screens */
+.brand-sub {
+  display: block !important;
+}
+
+/* ─── Thumbnails ─── */
+/* Desktop: 120×120 */
+.chat-attachment {
+  width: 120px !important;
+  height: 120px !important;
+}
+
+/* Mobile: 100×100 */
+@media (max-width: 640px) {
+  .chat-attachment {
+    width: 100px !important;
+    height: 100px !important;
+  }
+
+  /* Always-visible remove button — hover doesn't work on touch */
+  .chat-attachment__remove {
+    opacity: 1 !important;
+  }
+}
+
+/* Sent images in chat thread */
+.chat-message-image {
+  max-width: min(85vw, 400px) !important;
+  max-height: 300px !important;
+}
+
+/* ─── Touch targets (Apple HIG: 44px minimum) ─── */
+
+/* Theme toggle items: 36px */
+.theme-item {
+  min-width: 36px !important;
+  min-height: 36px !important;
+}
+
+/* Compose action buttons: Send + Fresh page — 44px tap target */
+.chat-compose .chat-compose__actions .btn {
+  min-height: 44px !important;
+  height: 44px !important;
+  max-height: 44px !important;
+}
+
+/* Compose textarea: comfortable input area */
+.chat-compose .chat-compose__field textarea {
+  min-height: 44px !important;
+}
+
+@media (max-width: 640px) {
+  /* Mobile textarea: taller, 16px prevents iOS auto-zoom */
+  .chat-compose .chat-compose__field textarea {
+    min-height: 52px !important;
+    font-size: 16px !important;
+    padding: 14px 12px !important;
+  }
+}
+
+/* ─── Desktop: slightly roomier compose area ─── */
+@media (min-width: 1024px) {
+  .chat-compose .chat-compose__field textarea {
+    min-height: 48px !important;
+    font-size: 15px !important;
+  }
+
+  .chat-compose .chat-compose__actions .btn {
+    height: 48px !important;
+    min-height: 48px !important;
+    max-height: 48px !important;
+    padding: 0 20px !important;
+    font-size: 14px !important;
+  }
 }
