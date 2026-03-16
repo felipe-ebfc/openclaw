@@ -16,8 +16,8 @@ export function renderWelcomeOverlay(state: AppViewState) {
   const name = state.assistantName;
   const showName = !isGenericName(name);
   const subtext = showName
-    ? `Meet ${name}, your AI companion for construction. Send a message to get started.`
-    : "Meet your AI companion for construction.";
+    ? `Meet ${name}, your AI companion. Ready when you are — let's chat or get right to work.`
+    : "Your AI companion. Ready when you are — let's chat or get right to work.";
 
   return html`
     <div
@@ -32,7 +32,7 @@ export function renderWelcomeOverlay(state: AppViewState) {
         <div class="welcome-header">Welcome to EBFC AI</div>
         <div class="welcome-sub">${subtext}</div>
         <button class="btn primary welcome-cta" @click=${() => state.handleDismissWelcomeOverlay()}>
-          Get started
+          Let's go
         </button>
       </div>
     </div>
