@@ -119,6 +119,28 @@ function renderCompactionIndicator(status: CompactionIndicatorStatus | null | un
   return nothing;
 }
 
+function sanitizeErrorForUser(error: string): string {
+  const e = error.toLowerCase();
+  if (e.includes("429") || e.includes("rate") || e.includes("limit")) {
+    return "I need a moment to catch up — try sending your message again in about a minute.";
+  }
+  if (e.includes("overload") || e.includes("capacity") || e.includes("busy")) {
+    return "Things are a bit busy right now. Give it another try in a moment.";
+  }
+  if (
+    e.includes("network") ||
+    e.includes("connection") ||
+    e.includes("fetch") ||
+    e.includes("econnrefused")
+  ) {
+    return "Lost connection for a sec — reconnecting...";
+  }
+  if (e.includes("timeout") || e.includes("timed out")) {
+    return "That took too long. Try a shorter message or hit Send again.";
+  }
+  return "Something went sideways. Try again — if it keeps happening, start a fresh page.";
+}
+
 function renderFallbackIndicator(status: FallbackIndicatorStatus | null | undefined) {
   if (!status) {
     return nothing;
@@ -322,7 +344,21 @@ export function renderChat(props: ChatProps) {
     <section class="card chat">
       ${props.disabledReason ? html`<div class="callout">${props.disabledReason}</div>` : nothing}
 
-      ${props.error ? html`<div class="callout danger">${props.error}</div>` : nothing}
+      ${
+        props.error
+          ? html`
+        <div class="callout callout--error-friendly">
+          <span>${sanitizeErrorForUser(props.error)}</span>
+          <button
+            class="callout-retry-btn"
+            type="button"
+            @click=${props.onSend}
+            title="Resend last message"
+          >Try again</button>
+        </div>
+      `
+          : nothing
+      }
 
       ${
         props.focusMode

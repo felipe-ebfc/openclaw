@@ -906,3 +906,37 @@ html, body {
     border-bottom: none;
   }
 }
+
+/* ─── Friendly error callout (rate limit / model overload recovery) ─── */
+.callout--error-friendly {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: color-mix(in srgb, #2563EB 12%, var(--bg-elevated));
+  border: 1px solid color-mix(in srgb, #2563EB 40%, transparent);
+  border-radius: 8px;
+  color: var(--text-muted, #a0a0b0);
+  font-size: 13px;
+  padding: 10px 14px;
+}
+
+.callout--error-friendly span {
+  flex: 1;
+}
+
+.callout-retry-btn {
+  flex-shrink: 0;
+  background: color-mix(in srgb, #2563EB 20%, transparent);
+  border: 1px solid color-mix(in srgb, #2563EB 50%, transparent);
+  border-radius: 6px;
+  color: #2563EB;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  transition: background 0.15s;
+}
+
+.callout-retry-btn:hover {
+  background: color-mix(in srgb, #2563EB 30%, transparent);
+}
