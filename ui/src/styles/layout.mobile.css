@@ -49,6 +49,13 @@
   .shell {
     --shell-pad: 8px;
     --shell-gap: 8px;
+    /* Lock viewport — only chat thread scrolls, not the whole page */
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
   }
 
   /* Topbar */

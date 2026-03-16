@@ -184,9 +184,18 @@ body::before {
 }
 
 /* ─── Brand header ─── */
-/* brand-title and brand-sub are already set to "EBFC AI" / "AI COMPANION" in app-render.ts */
-.brand-sub {
+/* Logo already says EBFC AI, so hide the redundant title text.
+ * Show only "AI COMPANION" subtitle next to the hamburger menu. */
+.brand-title {
   display: none !important;
+}
+
+.brand-sub {
+  display: block !important;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: var(--text);
 }
 
 /* ─── Send button — blue ─── */
