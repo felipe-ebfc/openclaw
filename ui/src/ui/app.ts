@@ -398,6 +398,7 @@ export class OpenClawApp extends LitElement {
   private topbarObserver: ResizeObserver | null = null;
 
   @state() welcomeOverlayVisible = false;
+  @state() referencesOverlayVisible = false;
   // Non-reactive: tracks in-session dismiss so re-evaluating state can't re-show
   private _welcomeOverlayDismissed = false;
   private _welcomeKeyDown = () => {

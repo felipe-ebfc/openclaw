@@ -256,14 +256,18 @@ export function renderApp(state: AppViewState) {
               ${icons.menu}
             </button>
             <div class="brand-menu-dropdown">
-              <a
+              <button
                 class="brand-menu-item"
-                href="https://docs.openclaw.ai"
-                target=${EXTERNAL_LINK_TARGET}
-                rel=${buildExternalLinkRel()}
+                @click=${(e: Event) => {
+                  e.stopPropagation();
+                  (e.currentTarget as HTMLElement)
+                    .closest(".brand-menu-dropdown")
+                    ?.classList.remove("open");
+                  state.referencesOverlayVisible = true;
+                }}
               >
-                ${icons.book} <span>${t("common.docs")}</span>
-              </a>
+                ${icons.book} <span>References</span>
+              </button>
             </div>
             <div class="brand-text">
               <div class="brand-sub">AI COMPANION</div>
@@ -1188,6 +1192,114 @@ export function renderApp(state: AppViewState) {
       ${renderExecApprovalPrompt(state)}
       ${renderGatewayUrlConfirmation(state)}
       ${renderWelcomeOverlay(state)}
+      ${renderReferencesOverlay(state)}
+    </div>
+  `;
+}
+
+function renderReferencesOverlay(state: AppViewState) {
+  if (!state.referencesOverlayVisible) {
+    return nothing;
+  }
+  const close = () => {
+    state.referencesOverlayVisible = false;
+  };
+  return html`
+    <div
+      class="refs-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label="References"
+      @click=${close}
+    >
+      <div class="refs-modal" @click=${(e: Event) => e.stopPropagation()}>
+        <div class="refs-header">
+          <h2 class="refs-title">EBFC AI — References</h2>
+          <button class="refs-close" @click=${close} aria-label="Close">✕</button>
+        </div>
+        <div class="refs-body">
+          <section class="refs-section">
+            <h3>Getting Around</h3>
+            <table class="refs-table">
+              <thead><tr><th>Command</th><th>What It Does</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><code>/fresh</code></td>
+                  <td><strong>Turn to a fresh page.</strong> Your companion saves the important stuff and starts clean — like flipping to the next page in your field notebook. Use this when things feel slow or cluttered.</td>
+                </tr>
+                <tr>
+                  <td><code>/stop</code></td>
+                  <td><strong>Pause the conversation.</strong> Your companion stops what it's doing immediately. Useful if it's headed the wrong direction.</td>
+                </tr>
+                <tr>
+                  <td><code>/summarize</code></td>
+                  <td><strong>Save and make room.</strong> Your companion notes the key points from this conversation and clears space to keep going. Add details if you want: <code>/summarize keep the RFI list and timeline</code>.</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="refs-section">
+            <h3>How Your Companion Works</h3>
+            <table class="refs-table">
+              <thead><tr><th>Command</th><th>What It Does</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><code>/status</code></td>
+                  <td><strong>Quick check-in.</strong> See your companion's current mode, how full the notebook page is, and whether everything is running smoothly.</td>
+                </tr>
+                <tr>
+                  <td><code>/mode</code></td>
+                  <td>
+                    <strong>Switch how your companion thinks.</strong> Three options:<br>
+                    <span class="refs-mode refs-mode--fast">🟢 <strong>Fast</strong></span> — Quick answers for emails, notes, simple questions.<br>
+                    <span class="refs-mode refs-mode--sharp">🔵 <strong>Sharp</strong></span> — Full horsepower. Documents, analysis, meeting prep. Default.<br>
+                    <span class="refs-mode refs-mode--deep">🟣 <strong>Deep</strong></span> — Extended thinking for complex problems, proposals, strategy.
+                  </td>
+                </tr>
+                <tr>
+                  <td><code>/think on</code></td>
+                  <td><strong>Turn on extended thinking.</strong> Your companion will pause and reason through hard problems before answering. <code>/think off</code> to go back to quick mode.</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="refs-section">
+            <h3>About You</h3>
+            <table class="refs-table">
+              <thead><tr><th>Command</th><th>What It Does</th></tr></thead>
+              <tbody>
+                <tr>
+                  <td><code>/whoami</code></td>
+                  <td><strong>See your profile.</strong> Check what your companion knows about you — your name, role, preferences, and working style. If something's wrong, just tell it to update.</td>
+                </tr>
+                <tr>
+                  <td><code>/notebook</code></td>
+                  <td><strong>Check your space.</strong> See how full the current conversation page is. When it gets full, your companion will suggest starting a fresh page — no work is lost.</td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+
+          <section class="refs-section refs-tips">
+            <h3>Tips</h3>
+            <ul>
+              <li><strong>You don't need slash commands for most things.</strong> Just ask in plain English. "What meetings do I have today?" works better than any command.</li>
+              <li><strong>Your companion remembers.</strong> It reads your notes and past conversations every session. Reference old topics naturally — "What did we decide about the RFI last week?"</li>
+              <li><strong>Start fresh when it feels heavy.</strong> If responses slow down or your companion seems to lose track, type <code>/fresh</code>. It saves everything important and starts a clean page.</li>
+              <li><strong>Name your companion.</strong> During your first conversation, you'll pick a name and personality. This is YOUR companion — make it feel right.</li>
+            </ul>
+          </section>
+
+          <section class="refs-section refs-help">
+            <h3>Need Help?</h3>
+            <p>Type <code>/help</code> anytime for a quick reminder of available commands, or just ask your companion: "What can you do?"</p>
+          </section>
+
+          <div class="refs-footer">Built by EBFC — Easier. Better. Faster. Cheaper.</div>
+        </div>
+      </div>
     </div>
   `;
 }

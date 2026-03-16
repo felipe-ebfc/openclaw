@@ -322,4 +322,5 @@ export type AppViewState = {
     handleSplitRatioChange: (ratio: number) => void;
     welcomeOverlayVisible: boolean;
     handleDismissWelcomeOverlay: () => void;
+    referencesOverlayVisible: boolean;
   };
