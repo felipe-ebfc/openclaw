@@ -11,6 +11,8 @@
   height: 100%;
   min-height: 0; /* Allow flex shrinking */
   overflow: hidden;
+  /* C: overflow: hidden on parent prevents horizontal scroll from edge buttons */
+  overflow-x: hidden;
   background: transparent !important;
   border: none !important;
   box-shadow: none !important;
@@ -166,10 +168,11 @@
   align-self: flex-start; /* Don't stretch in flex column parent */
 }
 
+/* H: increased from 80×80 to 120×120 for better thumbnail visibility */
 .chat-attachment {
   position: relative;
-  width: 80px;
-  height: 80px;
+  width: 120px;
+  height: 120px;
   border-radius: 6px;
   overflow: hidden;
   border: 1px solid var(--border);
@@ -241,9 +244,10 @@
   margin-bottom: 8px;
 }
 
+/* H: increased from 300×200 to min(85vw, 400px)×300 for larger previews */
 .chat-message-image {
-  max-width: 300px;
-  max-height: 200px;
+  max-width: min(85vw, 400px);
+  max-height: 300px;
   border-radius: 8px;
   object-fit: contain;
   cursor: pointer;
@@ -320,6 +324,39 @@
   line-height: 1;
   white-space: nowrap;
   box-sizing: border-box;
+}
+
+/* F: Secondary/muted button style for non-primary actions (e.g. New session).
+ * Gray outline that works in both light and dark themes. */
+.btn--secondary {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--muted);
+}
+
+.btn--secondary:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-hover);
+  color: var(--text);
+}
+
+:root[data-theme="light"] .btn--secondary {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--muted);
+}
+
+:root[data-theme="light"] .btn--secondary:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* J: inline queued state — subtle hint instead of changing button label */
+.chat-queued-hint {
+  font-size: 11px;
+  opacity: 0.7;
+  font-weight: 400;
 }
 
 /* Chat controls - moved to content-header area, left aligned */
@@ -450,6 +487,14 @@
 
   .chat-compose {
     grid-template-columns: 1fr;
+    /* B: safe area inset for Safari bottom toolbar on iPhone */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* C: prevent action buttons from causing horizontal scroll */
+  .chat-compose__actions {
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   /* Mobile: stack compose row vertically */
@@ -458,16 +503,35 @@
     gap: 8px;
   }
 
-  /* Mobile: stack action buttons vertically */
+  /* F: action buttons side-by-side (row) to reduce accidental taps.
+   * Send (primary) gets flex:3 (~70%); New session gets flex:1 (~30%). */
   .chat-compose__actions {
-    flex-direction: column;
+    flex-direction: row;
     width: 100%;
     gap: 8px;
   }
 
-  /* Mobile: full-width buttons */
-  .chat-compose .chat-compose__actions .btn {
-    width: 100%;
+  /* F: Send button — wider, right-aligned */
+  .chat-compose .chat-compose__actions .btn.primary {
+    flex: 3;
+    width: auto;
+  }
+
+  /* F: New session (non-primary) button — narrower, secondary style */
+  .chat-compose .chat-compose__actions .btn:not(.primary) {
+    flex: 1;
+    width: auto;
+  }
+
+  /* H: slightly smaller thumbnails on mobile (100×100) */
+  .chat-attachment {
+    width: 100px;
+    height: 100px;
+  }
+
+  /* H: remove button always visible on mobile — hover doesn't work on touch */
+  .chat-attachment__remove {
+    opacity: 1;
   }
 
   .chat-controls {

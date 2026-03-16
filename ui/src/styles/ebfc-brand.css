@@ -376,3 +376,15 @@ button[title*="cron"] {
 .chat-group.tool .chat-avatar {
   display: none !important;
 }
+
+/* ─── Brand logo: dark-mode contrast ─── */
+/* K: subtle border so the logo square is legible against the dark header */
+.brand-logo img {
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+}
+
+/* K: remove border in light mode — logo already contrasts on light bg */
+:root[data-theme="light"] .brand-logo img {
+  border-color: transparent;
+}

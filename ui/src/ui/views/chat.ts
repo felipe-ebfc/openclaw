@@ -250,10 +250,14 @@ export function renderChat(props: ChatProps) {
   };
 
   const hasAttachments = (props.attachments?.length ?? 0) > 0;
+  // G: use a shorter placeholder on narrow (mobile) viewports
+  const isMobile = window.matchMedia("(max-width: 640px)").matches;
   const composePlaceholder = props.connected
     ? hasAttachments
       ? "Add a message or paste more images..."
-      : "Message (↩ to send, Shift+↩ for line breaks, paste images)"
+      : isMobile
+        ? "Type a message..."
+        : "Message (↩ to send, Shift+↩ for line breaks, paste images)"
     : "Connect to the gateway to start chatting…";
 
   const splitRatio = props.splitRatio ?? 0.6;
@@ -470,7 +474,13 @@ export function renderChat(props: ChatProps) {
               ?disabled=${!props.connected}
               @click=${props.onSend}
             >
-              ${isBusy ? "Queue" : "Send"}<kbd class="btn-kbd">↵</kbd>
+              Send${
+                isBusy
+                  ? html`
+                      <span class="chat-queued-hint"> (queued)</span>
+                    `
+                  : nothing
+              }<kbd class="btn-kbd">↵</kbd>
             </button>
           </div>
         </div>
