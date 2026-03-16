@@ -377,23 +377,20 @@ button[title*="cron"] {
   display: none !important;
 }
 
-/* ─── E: Hide admin nav groups for beta users ─── */
-/* Only Chat + Resources visible; Control, Agent, Settings hidden */
-.nav-group:not(.nav-group--links) {
-  display: none;
+/* ─── E: Hide entire sidebar for beta users ─── */
+/* No sidebar at all — full-width chat. Resources via hamburger menu. */
+.nav {
+  display: none !important;
 }
-/* Show the Chat group (first nav-group rendered from TAB_GROUPS) */
-.nav-group:first-child {
-  display: block;
-}
-/* Keep Resources links group visible */
-.nav-group--links {
-  display: block;
+
+/* Remove nav collapse toggle — no sidebar to collapse */
+.nav-collapse-toggle {
+  display: none !important;
 }
 
 /* ─── E: Hamburger menu for Resources ─── */
 .brand-menu-toggle {
-  display: none; /* hidden on desktop — sidebar is visible */
+  display: flex; /* always visible — no sidebar in EBFC beta */
   background: none;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -471,19 +468,7 @@ button[title*="cron"] {
   box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
 }
 
-/* Mobile: show hamburger, hide sidebar */
-@media (max-width: 600px) {
-  .brand-menu-toggle {
-    display: flex;
-  }
-}
-
-/* Also show on tablet when nav is collapsed */
-@media (max-width: 1100px) {
-  .brand-menu-toggle {
-    display: flex;
-  }
-}
+/* Hamburger always visible — media queries not needed (sidebar hidden globally) */
 
 /* ─── Brand logo: dark-mode contrast ─── */
 /* K: subtle border so the logo square is legible against the dark header */
