@@ -53,6 +53,20 @@ function isSilentReplyPrefix(text: string): boolean {
   return tokenUpper === SILENT_REPLY_TOKEN && normalized === "NO";
 }
 /** Client-side defense-in-depth: detect assistant messages whose text is purely NO_REPLY. */
+/** Hide the synthetic [session_start] trigger from chat history. */
+function isHiddenGreetingTrigger(message: unknown): boolean {
+  if (!message || typeof message !== "object") {
+    return false;
+  }
+  const entry = message as Record<string, unknown>;
+  const role = typeof entry.role === "string" ? entry.role.toLowerCase() : "";
+  if (role !== "user") {
+    return false;
+  }
+  const text = (typeof entry.text === "string" ? entry.text : extractText(message)) ?? "";
+  return text.trim() === "[session_start]";
+}
+
 function isAssistantSilentReply(message: unknown): boolean {
   if (!message || typeof message !== "object") {
     return false;
@@ -109,7 +123,9 @@ export async function loadChatHistory(state: ChatState) {
       },
     );
     const messages = Array.isArray(res.messages) ? res.messages : [];
-    state.chatMessages = messages.filter((message) => !isAssistantSilentReply(message));
+    state.chatMessages = messages.filter(
+      (message) => !isAssistantSilentReply(message) && !isHiddenGreetingTrigger(message),
+    );
     state.chatThinkingLevel = res.thinkingLevel ?? null;
   } catch (err) {
     state.lastError = String(err);
