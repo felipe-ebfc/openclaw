@@ -3,7 +3,12 @@ import { scheduleChatScroll } from "./app-scroll.ts";
 import { setLastActiveSessionKey } from "./app-settings.ts";
 import { resetToolStream } from "./app-tool-stream.ts";
 import type { OpenClawApp } from "./app.ts";
-import { abortChatRun, loadChatHistory, sendChatMessage } from "./controllers/chat.ts";
+import {
+  abortChatRun,
+  loadChatHistory,
+  sendChatMessage,
+  sendGreetingTrigger,
+} from "./controllers/chat.ts";
 import { loadSessions } from "./controllers/sessions.ts";
 import type { GatewayHelloOk } from "./gateway.ts";
 import { normalizeBasePath } from "./navigation.ts";
@@ -216,6 +221,17 @@ export async function refreshChat(host: ChatHost, opts?: { scheduleScroll?: bool
 }
 
 export const flushChatQueueForEvent = flushChatQueue;
+
+export async function triggerGreeting(host: ChatHost): Promise<void> {
+  if (!host.connected) {
+    return;
+  }
+  resetToolStream(host as unknown as Parameters<typeof resetToolStream>[0]);
+  const runId = await sendGreetingTrigger(host as unknown as OpenClawApp);
+  if (runId) {
+    scheduleChatScroll(host as unknown as Parameters<typeof scheduleChatScroll>[0]);
+  }
+}
 
 type SessionDefaultsSnapshot = {
   defaultAgentId?: string;

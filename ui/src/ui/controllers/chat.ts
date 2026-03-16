@@ -268,6 +268,46 @@ export async function sendChatMessage(
   }
 }
 
+/**
+ * Sends a hidden session-start trigger to the gateway so the companion can
+ * deliver its opening greeting.  Unlike sendChatMessage, this does NOT push a
+ * visible user bubble into chatMessages — only the assistant reply will appear.
+ */
+export async function sendGreetingTrigger(state: ChatState): Promise<string | null> {
+  if (!state.client || !state.connected) {
+    return null;
+  }
+  if (state.chatSending || state.chatRunId) {
+    return null;
+  }
+
+  const now = Date.now();
+  state.chatSending = true;
+  state.lastError = null;
+  const runId = generateUUID();
+  state.chatRunId = runId;
+  state.chatStream = "";
+  state.chatStreamStartedAt = now;
+
+  try {
+    await state.client.request("chat.send", {
+      sessionKey: state.sessionKey,
+      message: "[session_start]",
+      deliver: false,
+      idempotencyKey: runId,
+    });
+    return runId;
+  } catch (err) {
+    state.chatRunId = null;
+    state.chatStream = null;
+    state.chatStreamStartedAt = null;
+    state.lastError = String(err);
+    return null;
+  } finally {
+    state.chatSending = false;
+  }
+}
+
 export async function abortChatRun(state: ChatState): Promise<boolean> {
   if (!state.client || !state.connected) {
     return false;
