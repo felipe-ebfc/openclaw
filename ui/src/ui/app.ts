@@ -18,7 +18,6 @@ import {
   handleAbortChat as handleAbortChatInternal,
   handleSendChat as handleSendChatInternal,
   removeQueuedMessage as removeQueuedMessageInternal,
-  triggerGreeting as triggerGreetingInternal,
 } from "./app-chat.ts";
 import { DEFAULT_CRON_FORM, DEFAULT_LOG_LEVEL_FILTERS } from "./app-defaults.ts";
 import type { EventLogEntry } from "./app-events.ts";
@@ -477,7 +476,23 @@ export class OpenClawApp extends LitElement {
     this._welcomeOverlayDismissed = true;
     this.welcomeOverlayVisible = false;
     localStorage.setItem("welcomeOverlaySeen" + this.assistantName, "1");
-    void triggerGreetingInternal(this as unknown as Parameters<typeof triggerGreetingInternal>[0]);
+
+    // Inject a static welcome message if chat is empty (no gateway trigger needed)
+    if (this.chatMessages.length === 0) {
+      const name = this.assistantName || "your AI companion";
+      this.chatMessages = [
+        {
+          role: "assistant",
+          content: [
+            {
+              type: "text",
+              text: `Hey! I'm **${name}**. Ready when you are — ask me anything or let's get to work.`,
+            },
+          ],
+          timestamp: new Date().toISOString(),
+        },
+      ];
+    }
   }
 
   connect() {
