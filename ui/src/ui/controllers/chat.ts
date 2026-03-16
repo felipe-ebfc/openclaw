@@ -4,9 +4,53 @@ import type { ChatAttachment } from "../ui-types.ts";
 import { generateUUID } from "../uuid.ts";
 
 const SILENT_REPLY_PATTERN = /^\s*NO_REPLY\s*$/i;
+const SILENT_REPLY_TOKEN = "NO_REPLY";
 
 function isSilentReplyStream(text: string): boolean {
-  return SILENT_REPLY_PATTERN.test(text);
+  if (SILENT_REPLY_PATTERN.test(text)) {
+    return true;
+  }
+  return isSilentReplyPrefix(text);
+}
+
+/**
+ * Detect streaming prefixes of NO_REPLY (e.g. "NO", "NO_", "NO_REP").
+ * Only matches uppercase fragments that are a prefix of the token,
+ * to avoid suppressing natural-language text like "No problem".
+ */
+function isSilentReplyPrefix(text: string): boolean {
+  if (!text) {
+    return false;
+  }
+  const trimmed = text.trimStart();
+  if (!trimmed) {
+    return false;
+  }
+  const tokenUpper = SILENT_REPLY_TOKEN.toUpperCase();
+  // Case-insensitive exact match
+  if (trimmed.trimEnd().toUpperCase() === tokenUpper) {
+    return true;
+  }
+  // Only suppress uppercase-only fragments (guards against "No..." text)
+  if (trimmed !== trimmed.toUpperCase()) {
+    return false;
+  }
+  const normalized = trimmed.toUpperCase();
+  if (normalized.length < 2) {
+    return false;
+  }
+  if (/[^A-Z_]/.test(normalized)) {
+    return false;
+  }
+  if (!tokenUpper.startsWith(normalized)) {
+    return false;
+  }
+  // If it contains underscore, it's clearly a token fragment (e.g. "NO_")
+  if (normalized.includes("_")) {
+    return true;
+  }
+  // "NO" is a valid prefix of "NO_REPLY"
+  return tokenUpper === SILENT_REPLY_TOKEN && normalized === "NO";
 }
 /** Client-side defense-in-depth: detect assistant messages whose text is purely NO_REPLY. */
 function isAssistantSilentReply(message: unknown): boolean {
