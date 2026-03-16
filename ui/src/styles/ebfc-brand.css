@@ -377,6 +377,114 @@ button[title*="cron"] {
   display: none !important;
 }
 
+/* ─── E: Hide admin nav groups for beta users ─── */
+/* Only Chat + Resources visible; Control, Agent, Settings hidden */
+.nav-group:not(.nav-group--links) {
+  display: none;
+}
+/* Show the Chat group (first nav-group rendered from TAB_GROUPS) */
+.nav-group:first-child {
+  display: block;
+}
+/* Keep Resources links group visible */
+.nav-group--links {
+  display: block;
+}
+
+/* ─── E: Hamburger menu for Resources ─── */
+.brand-menu-toggle {
+  display: none; /* hidden on desktop — sidebar is visible */
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  margin: 0 4px;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: color 150ms, border-color 150ms;
+}
+
+.brand-menu-toggle:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.brand-menu-toggle svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5px;
+}
+
+.brand-menu-dropdown {
+  display: none;
+  position: absolute;
+  top: 100%;
+  left: 60px;
+  z-index: 100;
+  min-width: 160px;
+  padding: 6px;
+  background: var(--panel-strong);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.brand-menu-dropdown.open {
+  display: block;
+}
+
+.brand-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: 6px;
+  transition: background 150ms;
+}
+
+.brand-menu-item:hover {
+  background: var(--bg-hover);
+}
+
+.brand-menu-item svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 1.5px;
+  flex-shrink: 0;
+}
+
+:root[data-theme="light"] .brand-menu-dropdown {
+  background: #fff;
+  border-color: rgba(16, 24, 40, 0.12);
+  box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+}
+
+/* Mobile: show hamburger, hide sidebar */
+@media (max-width: 600px) {
+  .brand-menu-toggle {
+    display: flex;
+  }
+}
+
+/* Also show on tablet when nav is collapsed */
+@media (max-width: 1100px) {
+  .brand-menu-toggle {
+    display: flex;
+  }
+}
+
 /* ─── Brand logo: dark-mode contrast ─── */
 /* K: subtle border so the logo square is legible against the dark header */
 .brand-logo img {

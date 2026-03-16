@@ -411,10 +411,17 @@ export class OpenClawApp extends LitElement {
     return this;
   }
 
+  private _closeBrandMenu = () => {
+    this.renderRoot
+      ?.querySelectorAll(".brand-menu-dropdown.open")
+      .forEach((el) => el.classList.remove("open"));
+  };
+
   connectedCallback() {
     super.connectedCallback();
     handleConnected(this as unknown as Parameters<typeof handleConnected>[0]);
     window.addEventListener("keydown", this._welcomeKeyDown);
+    document.addEventListener("click", this._closeBrandMenu);
   }
 
   protected firstUpdated() {
@@ -423,6 +430,7 @@ export class OpenClawApp extends LitElement {
 
   disconnectedCallback() {
     window.removeEventListener("keydown", this._welcomeKeyDown);
+    document.removeEventListener("click", this._closeBrandMenu);
     handleDisconnected(this as unknown as Parameters<typeof handleDisconnected>[0]);
     super.disconnectedCallback();
   }

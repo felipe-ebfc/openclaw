@@ -241,6 +241,30 @@ export function renderApp(state: AppViewState) {
             <div class="brand-logo">
               <img src=${basePath ? `${basePath}/logo-square.png` : "/logo-square.png"} alt="EBFC AI" />
             </div>
+            <button
+              class="brand-menu-toggle"
+              @click=${(e: Event) => {
+                e.stopPropagation();
+                const el = (e.currentTarget as HTMLElement)
+                  .closest(".brand")
+                  ?.querySelector(".brand-menu-dropdown");
+                el?.classList.toggle("open");
+              }}
+              aria-label="Resources menu"
+              title="Resources"
+            >
+              ${icons.menu}
+            </button>
+            <div class="brand-menu-dropdown">
+              <a
+                class="brand-menu-item"
+                href="https://docs.openclaw.ai"
+                target=${EXTERNAL_LINK_TARGET}
+                rel=${buildExternalLinkRel()}
+              >
+                ${icons.book} <span>${t("common.docs")}</span>
+              </a>
+            </div>
             <div class="brand-text">
               <div class="brand-title">EBFC AI</div>
               <div class="brand-sub">AI COMPANION</div>
