@@ -960,9 +960,11 @@ export async function runHeartbeatOnce(opts: {
     return true;
   };
 
+  // Capture transcript state before the heartbeat run so we can always prune afterward.
+  // Hoisted above try/catch so the catch block can attempt best-effort cleanup.
+  let transcriptState: { transcriptPath?: string; preHeartbeatSize?: number } | undefined;
   try {
-    // Capture transcript state before the heartbeat run so we can prune if HEARTBEAT_OK
-    const transcriptState = await captureTranscriptState({
+    transcriptState = await captureTranscriptState({
       storePath,
       sessionKey,
       agentId,
@@ -1093,6 +1095,8 @@ export async function runHeartbeatOnce(opts: {
       : normalized.text;
 
     if (delivery.channel === "none" || !delivery.to) {
+      // Always prune heartbeat entries — alert was already processed, transcript should stay clean
+      await pruneHeartbeatTranscript(transcriptState);
       emitHeartbeatEvent({
         status: "skipped",
         reason: delivery.reason ?? "no-target",
@@ -1110,6 +1114,8 @@ export async function runHeartbeatOnce(opts: {
         sessionKey,
         updatedAt: previousUpdatedAt,
       });
+      // Always prune heartbeat entries — alert was already processed, transcript should stay clean
+      await pruneHeartbeatTranscript(transcriptState);
       emitHeartbeatEvent({
         status: "skipped",
         reason: "alerts-disabled",
@@ -1145,6 +1151,8 @@ export async function runHeartbeatOnce(opts: {
           channel: delivery.channel,
           reason: readiness.reason,
         });
+        // Always prune heartbeat entries — transcript should stay clean regardless of delivery outcome
+        await pruneHeartbeatTranscript(transcriptState);
         return { status: "skipped", reason: readiness.reason };
       }
     }
@@ -1184,6 +1192,11 @@ export async function runHeartbeatOnce(opts: {
       }
     }
 
+    // Always prune heartbeat entries after delivery — the alert was sent via the
+    // outbound channel; keeping entries in the main session transcript pollutes
+    // the user's chat history in the Control UI.
+    await pruneHeartbeatTranscript(transcriptState);
+
     emitHeartbeatEvent({
       status: "sent",
       to: delivery.to,
@@ -1197,6 +1210,14 @@ export async function runHeartbeatOnce(opts: {
     return { status: "ran", durationMs: Date.now() - startedAt };
   } catch (err) {
     const reason = formatErrorMessage(err);
+    // Best-effort prune on failure — transcript may have partial heartbeat entries
+    try {
+      if (transcriptState) {
+        await pruneHeartbeatTranscript(transcriptState);
+      }
+    } catch {
+      // Ignore prune errors during failure handling
+    }
     emitHeartbeatEvent({
       status: "failed",
       reason,
