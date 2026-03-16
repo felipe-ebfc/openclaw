@@ -266,7 +266,6 @@ export function renderApp(state: AppViewState) {
               </a>
             </div>
             <div class="brand-text">
-              <div class="brand-title">EBFC AI</div>
               <div class="brand-sub">AI COMPANION</div>
             </div>
           </div>
