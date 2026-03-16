@@ -168,15 +168,21 @@ function resolveRuntimeLabel(
  * Keys are lowercase substrings matched against the model string.
  */
 const MODE_NAME_MAP: { match: string; name: string; emoji: string }[] = [
-  { match: "kimi", name: "Fast", emoji: "🟢" },
-  { match: "sonnet", name: "Sharp", emoji: "🔵" },
+  // Deep 🟣 — complex reasoning, strategy, planning
   { match: "opus", name: "Deep", emoji: "🟣" },
-  { match: "haiku", name: "Fast", emoji: "🟢" },
-  { match: "gpt-4o-mini", name: "Fast", emoji: "🟢" },
-  { match: "gpt-4o", name: "Sharp", emoji: "🔵" },
-  { match: "gpt-4", name: "Deep", emoji: "🟣" },
   { match: "o1", name: "Deep", emoji: "🟣" },
   { match: "o3", name: "Deep", emoji: "🟣" },
+  { match: "gpt-4", name: "Deep", emoji: "🟣" },
+  // Sharp 🔵 — full horsepower, documents, analysis
+  { match: "sonnet", name: "Sharp", emoji: "🔵" },
+  { match: "qwen", name: "Sharp", emoji: "🔵" },
+  { match: "gpt-4o", name: "Sharp", emoji: "🔵" },
+  // Fast 🟢 — quick answers, lighter load
+  { match: "kimi", name: "Fast", emoji: "🟢" },
+  { match: "haiku", name: "Fast", emoji: "🟢" },
+  { match: "minimax", name: "Fast", emoji: "🟢" },
+  { match: "gpt-4o-mini", name: "Fast", emoji: "🟢" },
+  { match: "gemma", name: "Fast", emoji: "🟢" },
 ];
 
 function resolveModeName(model: string): { name: string; emoji: string } | undefined {
@@ -461,22 +467,13 @@ const formatVoiceModeLine = (
   return `🔊 Voice: ${autoMode} · provider=${provider} · limit=${maxLength} · summary=${summarize}`;
 };
 
-/** Resolve the user-facing mode tier label for a given model. */
-export function resolveModeTier(model: string): "Standard" | "Sharp" | "Deep Think" {
-  const m = model.toLowerCase();
-  if (m.includes("opus") || m.includes("o1") || m.includes("o3") || m.includes("deep-think")) {
-    return "Deep Think";
-  }
-  if (
-    m.includes("sonnet") ||
-    m.includes("gpt-4o") ||
-    m.includes("claude-3-5") ||
-    m.includes("claude-3-7")
-  ) {
-    return "Sharp";
-  }
-  // Default: Standard (Kimi, Haiku, budget/fast models)
-  return "Standard";
+/** Resolve the user-facing mode tier label for a given model.
+ *  Uses MODE_NAME_MAP as source of truth. Falls back to "Fast" for unknown models.
+ *  Legacy alias: "Standard" → "Fast", "Deep Think" → "Deep".
+ */
+export function resolveModeTier(model: string): "Fast" | "Sharp" | "Deep" {
+  const resolved = resolveModeName(model);
+  return (resolved?.name as "Fast" | "Sharp" | "Deep") ?? "Fast";
 }
 
 export function buildStatusMessage(args: StatusArgs): string {
