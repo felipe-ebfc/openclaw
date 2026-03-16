@@ -1063,8 +1063,8 @@ export async function runEmbeddedPiAgent(
               payloads: [
                 {
                   text:
-                    "Context overflow: prompt too large for the model. " +
-                    "Try /reset (or /new) to start a fresh session, or use a larger-context model.",
+                    "📓 This conversation got really long — I've saved the highlights. " +
+                    "Let's start a fresh page to keep things sharp: /fresh",
                   isError: true,
                 },
               ],
