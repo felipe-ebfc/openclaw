@@ -170,12 +170,12 @@ function resolveRuntimeLabel(
 const MODE_NAME_MAP: { match: string; name: string; emoji: string }[] = [
   // Deep 🟣 — complex reasoning, strategy, planning
   { match: "opus", name: "Deep", emoji: "🟣" },
+  { match: "qwen", name: "Deep", emoji: "🟣" },
   { match: "o1", name: "Deep", emoji: "🟣" },
   { match: "o3", name: "Deep", emoji: "🟣" },
   { match: "gpt-4", name: "Deep", emoji: "🟣" },
   // Sharp 🔵 — full horsepower, documents, analysis
   { match: "sonnet", name: "Sharp", emoji: "🔵" },
-  { match: "qwen", name: "Sharp", emoji: "🔵" },
   { match: "gpt-4o", name: "Sharp", emoji: "🔵" },
   // Fast 🟢 — quick answers, lighter load
   { match: "kimi", name: "Fast", emoji: "🟢" },
