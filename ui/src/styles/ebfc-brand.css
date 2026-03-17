@@ -515,24 +515,32 @@ html, body {
 }
 
 /* Shell: full viewport, no overflow, single column (nav removed).
- * svh = smallest viewport height — stable on iOS Chrome/Safari (ignores toolbar).
- * Fallback stack for older WebKit: 100vh → -webkit-fill-available → 100svh. */
+ * 100svh = smallest viewport height — stable on iOS (ignores toolbar).
+ * Single fallback for older browsers, no triple-stack fighting. */
 .shell {
-  height: 100vh !important;
-  height: -webkit-fill-available !important;
   height: 100svh !important;
-  max-height: 100vh !important;
-  max-height: -webkit-fill-available !important;
+  height: 100vh !important; /* fallback for browsers without svh */
   max-height: 100svh !important;
+  max-height: 100vh !important; /* fallback */
   overflow: hidden !important;
 }
 
-/* Content spans ALL grid columns (removes any nav-column gap) */
+/* Safari/WebKit fallback — -webkit-fill-available only where supported */
+@supports (-webkit-touch-callout: none) {
+  .shell {
+    height: -webkit-fill-available !important;
+    max-height: -webkit-fill-available !important;
+  }
+}
+
+/* Content spans ALL grid columns (removes any nav-column gap).
+ * height: 100% bounds the grid child so the flex column inside works on iOS. */
 .content {
   grid-column: 1 / -1 !important;
   overflow: hidden !important;
   display: flex !important;
   flex-direction: column !important;
+  height: 100% !important;
   min-height: 0 !important;
   padding-bottom: 0 !important;
 }
@@ -565,9 +573,11 @@ html, body {
   overflow-x: hidden !important;
 }
 
-/* Chat card: fills remaining content height, flex column */
+/* Chat card: fills remaining content height, flex column.
+ * height: 0 forces iOS Safari to treat this as bounded (known flex bug). */
 .chat {
   flex: 1 1 0 !important;
+  height: 0 !important;
   min-height: 0 !important;
   display: flex !important;
   flex-direction: column !important;
