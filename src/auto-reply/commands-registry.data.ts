@@ -666,8 +666,7 @@ function buildChatCommands(): ChatCommandDefinition[] {
     defineChatCommand({
       key: "model",
       nativeName: "model",
-      description: "Switch between Fast, Sharp, and Deep modes.",
-      textAlias: "/mode",
+      description: "Set model (or open picker).",
       category: "options",
       args: [
         {
