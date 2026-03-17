@@ -483,7 +483,7 @@ export class OpenClawApp extends LitElement {
     }
 
     const alreadySeen = localStorage.getItem("welcomeOverlaySeen" + this.assistantName) === "1";
-    const noMessages = this.chatMessages.length === 0 && !this.chatLoading;
+    const noMessages = this.chatMessages.length === 0;
     const onChatTab = this.tab === "chat";
     const shouldShow = this.connected && onChatTab && noMessages && !alreadySeen;
 
