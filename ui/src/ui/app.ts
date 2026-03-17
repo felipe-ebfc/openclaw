@@ -397,7 +397,9 @@ export class OpenClawApp extends LitElement {
   private themeMediaHandler: ((event: MediaQueryListEvent) => void) | null = null;
   private topbarObserver: ResizeObserver | null = null;
 
-  // Visual Viewport API: dynamically tracks browser toolbar + keyboard bottom gap
+  // Visual Viewport API: dynamically tracks browser toolbar + keyboard bottom gap.
+  // Sets both a padding var AND resizes the shell to the *actual* visible viewport
+  // so the compose bar stays above the on-screen keyboard (iMessage/ChatGPT behavior).
   private _syncVisualViewport = () => {
     const vv = window.visualViewport;
     if (!vv) {
@@ -405,6 +407,12 @@ export class OpenClawApp extends LitElement {
     }
     const gap = Math.max(0, Math.round(window.innerHeight - vv.offsetTop - vv.height));
     document.documentElement.style.setProperty("--vvp-bottom-inset", `${gap}px`);
+    // Resize shell to visual viewport height — keeps compose bar above keyboard
+    const shell = document.querySelector(".shell");
+    if (shell) {
+      shell.style.height = `${vv.height}px`;
+      shell.style.maxHeight = `${vv.height}px`;
+    }
   };
 
   @state() welcomeOverlayVisible = false;
