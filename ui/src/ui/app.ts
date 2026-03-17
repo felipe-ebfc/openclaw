@@ -397,6 +397,16 @@ export class OpenClawApp extends LitElement {
   private themeMediaHandler: ((event: MediaQueryListEvent) => void) | null = null;
   private topbarObserver: ResizeObserver | null = null;
 
+  // Visual Viewport API: dynamically tracks browser toolbar + keyboard bottom gap
+  private _syncVisualViewport = () => {
+    const vv = window.visualViewport;
+    if (!vv) {
+      return;
+    }
+    const gap = Math.max(0, Math.round(window.innerHeight - vv.offsetTop - vv.height));
+    document.documentElement.style.setProperty("--vvp-bottom-inset", `${gap}px`);
+  };
+
   @state() welcomeOverlayVisible = false;
   @state() referencesOverlayVisible = false;
   // Non-reactive: tracks in-session dismiss so re-evaluating state can't re-show
@@ -422,6 +432,11 @@ export class OpenClawApp extends LitElement {
     handleConnected(this as unknown as Parameters<typeof handleConnected>[0]);
     window.addEventListener("keydown", this._welcomeKeyDown);
     document.addEventListener("click", this._closeBrandMenu);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", this._syncVisualViewport);
+      window.visualViewport.addEventListener("scroll", this._syncVisualViewport);
+      this._syncVisualViewport();
+    }
   }
 
   protected firstUpdated() {
@@ -431,6 +446,10 @@ export class OpenClawApp extends LitElement {
   disconnectedCallback() {
     window.removeEventListener("keydown", this._welcomeKeyDown);
     document.removeEventListener("click", this._closeBrandMenu);
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener("resize", this._syncVisualViewport);
+      window.visualViewport.removeEventListener("scroll", this._syncVisualViewport);
+    }
     handleDisconnected(this as unknown as Parameters<typeof handleDisconnected>[0]);
     super.disconnectedCallback();
   }

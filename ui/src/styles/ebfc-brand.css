@@ -15,6 +15,9 @@
 /* ─── Companion emoji fallback ─── */
 :root {
   --companion-emoji: "💡";
+  /* Visual Viewport API writes the actual bottom inset (browser toolbar + keyboard gap).
+   * Starts at 0; updated by JS in app.ts via window.visualViewport listeners. */
+  --vvp-bottom-inset: 0px;
 }
 
 /* ─── Dark Theme (default) ─── */
@@ -574,9 +577,10 @@ html, body {
 /* Compose bar: frozen at bottom, never scrolls */
 .chat-compose {
   flex-shrink: 0 !important;
-  /* iPhone Safari: clear the home-indicator notch */
-  /* Use generous bottom padding to clear Chrome mobile toolbar + safe area */
-  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
+  /* Dynamic clearance via Visual Viewport API (--vvp-bottom-inset set by app.ts).
+   * Covers browser toolbar (~56px Chrome iOS, ~44px Safari) + home indicator.
+   * Falls back to env(safe-area-inset-bottom) on browsers without visualViewport. */
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--vvp-bottom-inset)) !important;
 }
 
 /* ─── Brand text: AI COMPANION on ALL screen sizes ─── */
@@ -604,13 +608,7 @@ html, body {
     opacity: 1 !important;
   }
 
-  /* Mobile: generous bottom padding to clear Chrome/Safari bottom toolbar
-   * Chrome iOS toolbar ~56px, Safari ~44px. env(safe-area-inset-bottom) doesn't
-   * cover browser chrome — only the home indicator (~34px on notched iPhones).
-   * Use 64px minimum to clear both browser toolbar and home indicator. */
-  .chat-compose {
-    padding-bottom: max(64px, calc(env(safe-area-inset-bottom, 0px) + 56px)) !important;
-  }
+
 }
 
 /* Sent images in chat thread */
