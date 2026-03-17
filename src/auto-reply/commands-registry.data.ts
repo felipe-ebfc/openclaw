@@ -667,11 +667,12 @@ function buildChatCommands(): ChatCommandDefinition[] {
       key: "model",
       nativeName: "model",
       description: "Set model (or open picker).",
+      textAlias: "/model",
       category: "options",
       args: [
         {
           name: "model",
-          description: "Mode (fast, sharp, deep) or model id",
+          description: "Model id (provider/model or alias)",
           type: "string",
         },
       ],
