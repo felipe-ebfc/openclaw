@@ -575,7 +575,8 @@ html, body {
 .chat-compose {
   flex-shrink: 0 !important;
   /* iPhone Safari: clear the home-indicator notch */
-  padding-bottom: max(4px, env(safe-area-inset-bottom)) !important;
+  /* Use generous bottom padding to clear Chrome mobile toolbar + safe area */
+  padding-bottom: max(16px, env(safe-area-inset-bottom, 16px)) !important;
 }
 
 /* ─── Brand text: AI COMPANION on ALL screen sizes ─── */
@@ -601,6 +602,11 @@ html, body {
   /* Always-visible remove button — hover doesn't work on touch */
   .chat-attachment__remove {
     opacity: 1 !important;
+  }
+
+  /* Mobile: extra bottom padding to clear Chrome/Safari toolbar */
+  .chat-compose {
+    padding-bottom: max(24px, env(safe-area-inset-bottom, 24px)) !important;
   }
 }
 
