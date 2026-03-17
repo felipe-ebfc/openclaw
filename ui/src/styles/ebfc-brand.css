@@ -604,9 +604,12 @@ html, body {
     opacity: 1 !important;
   }
 
-  /* Mobile: extra bottom padding to clear Chrome/Safari toolbar */
+  /* Mobile: generous bottom padding to clear Chrome/Safari bottom toolbar
+   * Chrome iOS toolbar ~56px, Safari ~44px. env(safe-area-inset-bottom) doesn't
+   * cover browser chrome — only the home indicator (~34px on notched iPhones).
+   * Use 64px minimum to clear both browser toolbar and home indicator. */
   .chat-compose {
-    padding-bottom: max(24px, env(safe-area-inset-bottom, 24px)) !important;
+    padding-bottom: max(64px, calc(env(safe-area-inset-bottom, 0px) + 56px)) !important;
   }
 }
 
