@@ -258,6 +258,20 @@ export function renderApp(state: AppViewState) {
             <div class="brand-menu-dropdown">
               <button
                 class="brand-menu-item"
+                ?disabled=${!state.connected}
+                @click=${(e: Event) => {
+                  e.stopPropagation();
+                  (e.currentTarget as HTMLElement)
+                    .closest(".brand-menu-dropdown")
+                    ?.classList.remove("open");
+                  void state.handleSendChat("/fresh", { restoreDraft: true });
+                }}
+              >
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><line x1="12" x2="12" y1="8" y2="16" /><line x1="8" x2="16" y1="12" y2="12" /></svg>
+                <span>New Session</span>
+              </button>
+              <button
+                class="brand-menu-item"
                 @click=${(e: Event) => {
                   e.stopPropagation();
                   (e.currentTarget as HTMLElement)

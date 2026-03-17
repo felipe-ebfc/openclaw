@@ -515,21 +515,59 @@ html, body {
 }
 
 /* Shell: full viewport, no overflow, single column (nav removed).
- * 100svh = smallest viewport height — stable on iOS (ignores toolbar).
- * Single fallback for older browsers, no triple-stack fighting. */
-.shell {
+ * Fallback order: 100vh first (all browsers), then 100svh (wins in browsers
+ * that support it). 100svh = smallest viewport height — stable on iOS
+ * (excludes dynamic toolbar). Last supported declaration wins per CSS cascade. */
+.shell,
+.shell--chat {
+  height: 100vh !important;
   height: 100svh !important;
-  height: 100vh !important; /* fallback for browsers without svh */
+  max-height: 100vh !important;
   max-height: 100svh !important;
-  max-height: 100vh !important; /* fallback */
+  /* Kill upstream .shell--chat { min-height: 100vh } — on iOS 100vh includes
+   * the address bar (~80-90px taller than visible area). min-height beats
+   * max-height per CSS spec, so the shell overflows and overflow:hidden clips
+   * the compose bar off the bottom. This was the portrait-invisible bug. */
+  min-height: 0 !important;
   overflow: hidden !important;
 }
 
 /* Safari/WebKit fallback — -webkit-fill-available only where supported */
 @supports (-webkit-touch-callout: none) {
-  .shell {
+  .shell,
+  .shell--chat {
     height: -webkit-fill-available !important;
     max-height: -webkit-fill-available !important;
+  }
+}
+
+/* Prevent openclaw-app wrapper from growing past viewport (upstream sets
+ * min-height: 100vh which can push the shell beyond visible area on iOS). */
+openclaw-app {
+  min-height: 0 !important;
+  height: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Grid rows: topbar auto-sizes, content row is minmax(0, 1fr) not bare 1fr.
+ * Bare 1fr = minmax(auto, 1fr) which lets the track grow to fit intrinsic
+ * content height. minmax(0, 1fr) caps the track to remaining space so the
+ * flex column inside .content is bounded on iOS Safari. */
+.shell,
+.shell--chat {
+  grid-template-rows: auto minmax(0, 1fr) !important;
+}
+
+/* On tablet/mobile upstream sets 3-row grid (topbar/nav/content).
+ * Nav is display:none in EBFC so collapse to 2 rows. */
+@media (max-width: 1100px) {
+  .shell,
+  .shell--chat {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: auto minmax(0, 1fr) !important;
+    grid-template-areas:
+      "topbar"
+      "content" !important;
   }
 }
 
@@ -626,11 +664,14 @@ html, body {
     width: auto !important;
   }
 
-  /* Actions sit as a flex sibling, not an overlay */
+  /* Actions sit as a flex sibling, not an overlay.
+   * align-self: center vertically centers the 36px button with the textarea
+   * (which is centered inside the taller field wrapper by its own padding). */
   .chat-compose__actions {
     position: static !important;
     flex-direction: row !important;
     align-items: center !important;
+    align-self: center !important;
     gap: 0 !important;
     padding: 0 !important;
     width: auto !important;
@@ -642,7 +683,9 @@ html, body {
     display: none !important;
   }
 
-  /* Send button: 36px blue circle with ↑ arrow, no text */
+  /* Send button: 36px blue circle with ↑ arrow, no text.
+   * overflow:hidden + text-indent hides the "Send" text node so it doesn't
+   * participate in flex layout and push the ::after arrow off-center. */
   .chat-compose .chat-compose__actions .btn.primary {
     width: 36px !important;
     height: 36px !important;
@@ -652,15 +695,23 @@ html, body {
     border-radius: 50% !important;
     padding: 0 !important;
     font-size: 0 !important;
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
+    line-height: 0 !important;
+    text-indent: -9999px !important;
+    overflow: hidden !important;
+    position: relative !important;
     background: #2563EB !important;
     border-color: #2563EB !important;
   }
 
+  /* Arrow pseudo-element: absolutely centered so text nodes can't affect it */
   .chat-compose .chat-compose__actions .btn.primary::after {
     content: '↑';
+    position: absolute !important;
+    inset: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    text-indent: 0 !important;
     font-size: 20px;
     line-height: 1;
     color: #ffffff;
