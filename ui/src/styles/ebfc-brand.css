@@ -593,8 +593,9 @@ html, body {
 }
 
 /* Mobile: iPhone home indicator clearance via safe-area + Visual Viewport inset.
- * 12px floor keeps the bar off the screen edge even when both values are zero. */
-@media (max-width: 640px) {
+ * 12px floor keeps the bar off the screen edge even when both values are zero.
+ * Two triggers: narrow portrait (≤640px) OR landscape phone (short + touch). */
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .chat-compose {
     padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
   }
@@ -676,7 +677,7 @@ html, body {
 }
 
 /* Mobile: 100×100 */
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   .chat-attachment {
     width: 120px !important;
     height: 120px !important;
@@ -716,7 +717,7 @@ html, body {
   min-height: 44px !important;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 640px), (max-height: 500px) and (pointer: coarse) {
   /* Mobile textarea: taller, 16px prevents iOS auto-zoom.
    * No extra right padding needed — send button is a flex sibling, not overlaid. */
   .chat-compose .chat-compose__field textarea {
