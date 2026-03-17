@@ -595,8 +595,8 @@ html, body {
 /* Mobile: 100×100 */
 @media (max-width: 640px) {
   .chat-attachment {
-    width: 100px !important;
-    height: 100px !important;
+    width: 120px !important;
+    height: 120px !important;
   }
 
   /* Always-visible remove button — hover doesn't work on touch */
