@@ -746,9 +746,9 @@ export function buildStatusMessage(args: StatusArgs): string {
   const voiceLine = formatVoiceModeLine(args.config, args.sessionEntry);
 
   // Branded output: clean, human-friendly format when identity is configured.
+  // Show the actual model name — no Fast/Sharp/Deep abstraction.
   if (identityName) {
-    const mode = resolveModeName(activeModel);
-    const modeLabel = mode ? `${mode.emoji} ${mode.name} mode` : activeModelLabel;
+    const modeLabel = activeModelLabel;
     const companionName = identityConfig?.name?.trim() || identityName;
     const companionEmoji = identityConfig?.emoji?.trim() || identityEmoji || "🏗️";
 
@@ -869,7 +869,7 @@ export function buildHelpMessage(cfg?: OpenClawConfig): string {
 
   lines.push("How I'm working");
   lines.push("  /status — Quick check-in");
-  lines.push("  /mode — Switch between Fast, Sharp, and Deep");
+  lines.push("  /mode — Switch models");
   lines.push("  /think on|off — Toggle extended thinking");
   lines.push("");
 

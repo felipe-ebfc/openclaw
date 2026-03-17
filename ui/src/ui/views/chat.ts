@@ -469,6 +469,8 @@ export function renderChat(props: ChatProps) {
               ${ref((el) => el && adjustTextareaHeight(el as HTMLTextAreaElement))}
               .value=${props.draft}
               dir=${detectTextDirection(props.draft)}
+              autocomplete="off"
+              data-form-type="other"
               ?disabled=${!props.connected}
               @keydown=${(e: KeyboardEvent) => {
                 if (e.key !== "Enter") {

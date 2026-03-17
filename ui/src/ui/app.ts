@@ -436,7 +436,17 @@ export class OpenClawApp extends LitElement {
       window.visualViewport.addEventListener("resize", this._syncVisualViewport);
       window.visualViewport.addEventListener("scroll", this._syncVisualViewport);
       this._syncVisualViewport();
+      // Safari iOS: viewport may not have settled at connectedCallback time.
+      // Re-sync after a frame and again after a short delay to catch toolbar layout.
+      requestAnimationFrame(() => this._syncVisualViewport());
+      setTimeout(() => this._syncVisualViewport(), 300);
     }
+    // Chrome mobile: autofill/credential bar appears on input focus and does not
+    // always fire a visualViewport resize event. window.resize and focus events
+    // catch the gap that visualViewport alone misses.
+    window.addEventListener("resize", this._syncVisualViewport);
+    document.addEventListener("focusin", this._syncVisualViewport);
+    document.addEventListener("focusout", this._syncVisualViewport);
   }
 
   protected firstUpdated() {
@@ -450,6 +460,9 @@ export class OpenClawApp extends LitElement {
       window.visualViewport.removeEventListener("resize", this._syncVisualViewport);
       window.visualViewport.removeEventListener("scroll", this._syncVisualViewport);
     }
+    window.removeEventListener("resize", this._syncVisualViewport);
+    document.removeEventListener("focusin", this._syncVisualViewport);
+    document.removeEventListener("focusout", this._syncVisualViewport);
     handleDisconnected(this as unknown as Parameters<typeof handleDisconnected>[0]);
     super.disconnectedCallback();
   }

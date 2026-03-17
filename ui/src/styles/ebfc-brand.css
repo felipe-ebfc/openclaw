@@ -514,20 +514,17 @@ html, body {
   max-height: 100% !important;
 }
 
-/* Shell: full viewport, no overflow, single column (nav removed) */
+/* Shell: full viewport, no overflow, single column (nav removed).
+ * svh = smallest viewport height — stable on iOS Chrome/Safari (ignores toolbar).
+ * Fallback stack for older WebKit: 100vh → -webkit-fill-available → 100svh. */
 .shell {
-  height: 100dvh !important;
-  max-height: 100dvh !important;
+  height: 100vh !important;
+  height: -webkit-fill-available !important;
+  height: 100svh !important;
+  max-height: 100vh !important;
+  max-height: -webkit-fill-available !important;
+  max-height: 100svh !important;
   overflow: hidden !important;
-  /* Collapse the nav column: content spans the entire grid width */
-}
-
-/* iPhone Safari: use svh so the shell sits below the address bar */
-@supports (height: 100svh) {
-  .shell {
-    height: 100svh !important;
-    max-height: 100svh !important;
-  }
 }
 
 /* Content spans ALL grid columns (removes any nav-column gap) */
@@ -540,11 +537,24 @@ html, body {
   padding-bottom: 0 !important;
 }
 
-/* Topbar: first row, never scrolls, always pinned */
+/* Topbar: first row, never scrolls, always pinned.
+ * Taller than upstream 56px so the logo + action buttons have room. */
 .topbar {
   flex-shrink: 0 !important;
   position: relative !important;
   z-index: 50 !important;
+  height: 72px !important;
+  min-height: 72px !important;
+}
+
+/* Larger brand logo to fill the taller topbar */
+.brand-logo {
+  width: 40px !important;
+  height: 40px !important;
+}
+
+.brand-logo img {
+  border-radius: 8px;
 }
 
 /* No horizontal scroll on any layout container */
@@ -578,9 +588,78 @@ html, body {
 .chat-compose {
   flex-shrink: 0 !important;
   /* Dynamic clearance via Visual Viewport API (--vvp-bottom-inset set by app.ts).
-   * Covers browser toolbar (~56px Chrome iOS, ~44px Safari) + home indicator.
    * Falls back to env(safe-area-inset-bottom) on browsers without visualViewport. */
   padding-bottom: max(env(safe-area-inset-bottom, 0px), var(--vvp-bottom-inset)) !important;
+}
+
+/* Mobile: iPhone home indicator clearance via safe-area + Visual Viewport inset.
+ * 12px floor keeps the bar off the screen edge even when both values are zero. */
+@media (max-width: 640px) {
+  .chat-compose {
+    padding-bottom: max(12px, env(safe-area-inset-bottom)) !important;
+  }
+
+  /* Flex-row compose: textarea (flex:1) + send button (36px) as siblings.
+   * Avoids absolute positioning inside the field which Chrome's autofill
+   * bar covers on iOS Chrome. */
+  .chat-compose__row {
+    flex-direction: row !important;
+    align-items: flex-end !important;
+    gap: 8px !important;
+    position: static !important;
+  }
+
+  .chat-compose__field {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    width: auto !important;
+  }
+
+  /* Actions sit as a flex sibling, not an overlay */
+  .chat-compose__actions {
+    position: static !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 0 !important;
+    padding: 0 !important;
+    width: auto !important;
+    flex-shrink: 0 !important;
+  }
+
+  /* Hide Fresh page / New session button on mobile */
+  .chat-compose .chat-compose__actions .btn:first-child {
+    display: none !important;
+  }
+
+  /* Send button: 36px blue circle with ↑ arrow, no text */
+  .chat-compose .chat-compose__actions .btn.primary {
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    max-height: 36px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    font-size: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #2563EB !important;
+    border-color: #2563EB !important;
+  }
+
+  .chat-compose .chat-compose__actions .btn.primary::after {
+    content: '↑';
+    font-size: 20px;
+    line-height: 1;
+    color: #ffffff;
+    font-weight: 700;
+  }
+
+  /* Keyboard shortcut hint is irrelevant on touch — hide it */
+  .chat-compose .btn-kbd {
+    display: none !important;
+  }
 }
 
 /* ─── Brand text: AI COMPANION on ALL screen sizes ─── */
@@ -638,7 +717,8 @@ html, body {
 }
 
 @media (max-width: 640px) {
-  /* Mobile textarea: taller, 16px prevents iOS auto-zoom */
+  /* Mobile textarea: taller, 16px prevents iOS auto-zoom.
+   * No extra right padding needed — send button is a flex sibling, not overlaid. */
   .chat-compose .chat-compose__field textarea {
     min-height: 52px !important;
     font-size: 16px !important;

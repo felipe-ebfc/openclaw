@@ -1249,12 +1249,11 @@ function renderReferencesOverlay(state: AppViewState) {
                   <td><strong>Quick check-in.</strong> See your companion's current mode, how full the notebook page is, and whether everything is running smoothly.</td>
                 </tr>
                 <tr>
-                  <td><code>/mode</code></td>
+                  <td><code>/model</code></td>
                   <td>
-                    <strong>Switch how your companion thinks.</strong> Three options:<br>
-                    <span class="refs-mode refs-mode--fast">🟢 <strong>Fast</strong></span> — Quick answers for emails, notes, simple questions.<br>
-                    <span class="refs-mode refs-mode--sharp">🔵 <strong>Sharp</strong></span> — Full horsepower. Documents, analysis, meeting prep. Default.<br>
-                    <span class="refs-mode refs-mode--deep">🟣 <strong>Deep</strong></span> — Extended thinking for complex problems, proposals, strategy.
+                    <strong>Switch models.</strong> Pick a different model for the current session.<br>
+                    <code>/model qwen</code> — Qwen 3.5 (default)<br>
+                    <code>/model sonnet</code> — Claude Sonnet 4.6
                   </td>
                 </tr>
                 <tr>
