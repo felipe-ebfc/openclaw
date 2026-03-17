@@ -51,13 +51,13 @@ export function normalizeThinkLevel(raw?: string | null): ThinkLevel | undefined
   if (collapsed === "xhigh" || collapsed === "extrahigh") {
     return "xhigh";
   }
-  if (["off"].includes(key)) {
+  if (["off", "sharp"].includes(key)) {
     return "off";
   }
   if (["on", "enable", "enabled"].includes(key)) {
     return "low";
   }
-  if (["min", "minimal"].includes(key)) {
+  if (["min", "minimal", "fast"].includes(key)) {
     return "minimal";
   }
   if (["low", "thinkhard", "think-hard", "think_hard"].includes(key)) {
@@ -67,7 +67,16 @@ export function normalizeThinkLevel(raw?: string | null): ThinkLevel | undefined
     return "medium";
   }
   if (
-    ["high", "ultra", "ultrathink", "think-hard", "thinkhardest", "highest", "max"].includes(key)
+    [
+      "high",
+      "ultra",
+      "ultrathink",
+      "think-hard",
+      "thinkhardest",
+      "highest",
+      "max",
+      "deep",
+    ].includes(key)
   ) {
     return "high";
   }

@@ -64,6 +64,7 @@ const RESERVED_COMMANDS = new Set([
   "exec",
   // Mode toggles
   "think",
+  "mode",
   "verbose",
   "reasoning",
   "elevated",

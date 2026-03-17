@@ -740,7 +740,7 @@ function buildChatCommands(): ChatCommandDefinition[] {
   ];
 
   registerAlias(commands, "whoami", "/id");
-  registerAlias(commands, "think", "/thinking", "/t");
+  registerAlias(commands, "think", "/thinking", "/t", "/mode");
   registerAlias(commands, "verbose", "/v");
   registerAlias(commands, "reasoning", "/reason");
   registerAlias(commands, "elevated", "/elev");

@@ -22,6 +22,7 @@ export type SlashCommandOptions = {
 
 const COMMAND_ALIASES: Record<string, string> = {
   elev: "elevated",
+  mode: "think",
 };
 
 function createLevelCompletion(
