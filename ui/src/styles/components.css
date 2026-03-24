@@ -2661,3 +2661,89 @@
 :root[data-theme="light"] .welcome-overlay {
   background: rgba(0, 0, 0, 0.35);
 }
+
+/* ===========================================
+   Brain Tip Card
+   =========================================== */
+
+.brain-tip-card {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  margin: 16px auto;
+  max-width: 480px;
+  padding: 20px 24px;
+}
+
+.brain-tip-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.brain-tip-icon {
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+}
+
+.brain-tip-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.brain-tip-sub {
+  color: var(--muted);
+  margin: 8px 0 16px;
+}
+
+.brain-tip-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.brain-tip-prompt {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  font-size: 0.875rem;
+  color: var(--text);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.brain-tip-prompt:hover {
+  background: var(--hover);
+  border-color: var(--border-strong);
+}
+
+.brain-tip-dismiss {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--muted);
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s, background 0.15s;
+}
+
+.brain-tip-dismiss:hover {
+  color: var(--text);
+  background: var(--hover);
+}
+
+.brain-tip-dismiss svg {
+  width: 16px;
+  height: 16px;
+}

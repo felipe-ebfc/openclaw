@@ -411,6 +411,8 @@ export class OpenClawApp extends LitElement {
 
   @state() welcomeOverlayVisible = false;
   @state() referencesOverlayVisible = false;
+  @state() brainTipVisible = false;
+  @state() brainTipDismissed = false;
   // Non-reactive: tracks in-session dismiss so re-evaluating state can't re-show
   private _welcomeOverlayDismissed = false;
   private _welcomeKeyDown = () => {
@@ -472,6 +474,7 @@ export class OpenClawApp extends LitElement {
   protected updated(changed: Map<PropertyKey, unknown>) {
     handleUpdated(this as unknown as Parameters<typeof handleUpdated>[0], changed);
     this._syncWelcomeOverlay(changed);
+    this._syncBrainTip(changed);
   }
 
   private _syncWelcomeOverlay(changed: Map<PropertyKey, unknown>) {
@@ -527,6 +530,39 @@ export class OpenClawApp extends LitElement {
           timestamp: new Date().toISOString(),
         },
       ];
+    }
+  }
+
+  handleDismissBrainTip() {
+    this.brainTipDismissed = true;
+    this.brainTipVisible = false;
+    localStorage.setItem("brainTipSeen", "1");
+  }
+
+  private _syncBrainTip(changed: Map<PropertyKey, unknown>) {
+    if (this.brainTipDismissed) {
+      if (this.brainTipVisible) {
+        this.brainTipVisible = false;
+      }
+      return;
+    }
+
+    const relevant = ["connected", "sessionsResult", "tab", "brainTipDismissed"];
+    if (!relevant.some((k) => changed.has(k))) {
+      return;
+    }
+
+    const sessionCount = this.sessionsResult?.count ?? 0;
+    const alreadySeen = localStorage.getItem("brainTipSeen") === "1";
+    const shouldShow =
+      this.connected &&
+      this.tab === "chat" &&
+      sessionCount >= 3 &&
+      !alreadySeen &&
+      !this.brainTipDismissed;
+
+    if (shouldShow !== this.brainTipVisible) {
+      this.brainTipVisible = shouldShow;
     }
   }
 

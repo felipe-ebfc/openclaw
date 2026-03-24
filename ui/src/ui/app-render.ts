@@ -68,6 +68,7 @@ import { icons } from "./icons.ts";
 import { normalizeBasePath, TAB_GROUPS, subtitleForTab, titleForTab } from "./navigation.ts";
 import { resolveConfiguredCronModelSuggestions, sortLocaleStrings } from "./views/agents-utils.ts";
 import { renderAgents } from "./views/agents.ts";
+import { renderBrainTipCard } from "./views/brain-tip-card.ts";
 import { renderChannels } from "./views/channels.ts";
 import { renderChat } from "./views/chat.ts";
 import { renderConfig } from "./views/config.ts";
@@ -1115,6 +1116,7 @@ export function renderApp(state: AppViewState) {
                 onSplitRatioChange: (ratio: number) => state.handleSplitRatioChange(ratio),
                 assistantName: state.assistantName,
                 assistantAvatar: state.assistantAvatar,
+                tipCard: state.brainTipVisible ? renderBrainTipCard(state) : nothing,
               })
             : nothing
         }

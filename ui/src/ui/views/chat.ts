@@ -1,4 +1,4 @@
-import { html, nothing } from "lit";
+import { html, nothing, type TemplateResult } from "lit";
 import { ref } from "lit/directives/ref.js";
 import { repeat } from "lit/directives/repeat.js";
 import {
@@ -80,6 +80,7 @@ export type ChatProps = {
   onCloseSidebar?: () => void;
   onSplitRatioChange?: (ratio: number) => void;
   onChatScroll?: (event: Event) => void;
+  tipCard?: TemplateResult | typeof nothing;
 };
 
 const COMPACTION_TOAST_DURATION_MS = 5000;
@@ -459,6 +460,8 @@ export function renderChat(props: ChatProps) {
           `
           : nothing
       }
+
+      ${props.tipCard ?? nothing}
 
       <div class="chat-compose">
         ${renderAttachmentPreview(props)}

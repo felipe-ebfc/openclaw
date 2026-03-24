@@ -323,4 +323,7 @@ export type AppViewState = {
     welcomeOverlayVisible: boolean;
     handleDismissWelcomeOverlay: () => void;
     referencesOverlayVisible: boolean;
+    brainTipVisible: boolean;
+    brainTipDismissed: boolean;
+    handleDismissBrainTip: () => void;
   };
